@@ -108,22 +108,22 @@ The Common Open Research Emulator (CORE) is a network emulator that models nodes
 
 \begin{minipage}{1\textwidth} \centering
 		\includegraphics[width=0.6\textwidth]{6-core}
-		\captionof{figure}{Example emulated network in the CORE GUI.}
+		\captionof{figure}{Example emulated network in the CORE GUI, showing routers and hosts.}
 	\end{minipage}
 
-Programs can be written for these nodes and run as daemonised Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming.
+Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{iperf} can be run on emulated endpoint hosts, making testing and evaluation of the network surprisingly simple.
 
-The emulated routers contain default routing protocol implementations (Quagga suite, OSPF) which can be disabled and replaced by custom implementations.
+Link properties can be programmatically customised through the Python API, with properties including bandwidth, delay, loss, and jitter. This will aid greatly in evaluation, for example simulating network partitions.
 
-As well as this, standard network testing tools like \texttt{iperf} can be run on emulated endpoint hosts, making testing and evaluation of the network surprisingly simple.
+One limitation is that CORE operates in real-time using the OS's clock, and thus the performance of the simulated network is somewhat dependent on the performance of the machine it's being run on. I will therefore be taking great care to create a reliable and statistically sound testing environment, for example setting processor priority, not running other programs, and taking baseline measurements to compare against.
 
 \subsection{Link-State Routing Design}
 
-The subset of OSPF that I implemented is split into two programs, \texttt{heartbeat} and \texttt{lsr}. Routers run both programs, and hosts run only \texttt{heartbeat}.
+The subset of OSPF that I implemented is split into two programs, \texttt{heartbeat} and \texttt{dtlsr}. Routers run both programs, and hosts run only \texttt{heartbeat}.
 
-\texttt{heartbeat} sends periodic heartbeat messages to all neighbouring nodes, notifying them that the connecting link is still up. The message is received by \texttt{lsr}.
+\texttt{heartbeat} sends periodic heartbeat messages to all neighbouring nodes, notifying them that the connecting link is still up. The message is received by \texttt{dtlsr}.
 
-\texttt{lsr} implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends link-state announcements (LSAs) in response to detected changes in the network.
+\texttt{dtlsr} implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends link-state announcements (LSAs) in response to detected changes in the network.
 
 These changes are detected in one of three ways:
 \begin{enumerate}
@@ -143,7 +143,7 @@ Heartbeats and LSAs are recieved on sockets with distinct ports, allowing them t
 
 \subsubsection{Delay-Tolerant Modifications}
 
-For the delay-tolerant version, \texttt{lsr} is replaced with \texttt{dtlsr}, keeping \texttt{heartbeat} identical. \texttt{dtlsr} maintains the same implementation design decisions as above.
+For the delay-tolerant version, \texttt{dtlsr} can be recompiled with the \texttt{-DDTLSR} flag active, keeping \texttt{heartbeat} identical. \texttt{dtlsr} maintains the same implementation design decisions as above.
 
 TODO: actually implement DTLSR and say what I did. Link status history, etc.
 
