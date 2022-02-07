@@ -119,7 +119,9 @@ One limitation is that CORE operates in real-time using the OS's clock, and thus
 
 \subsection{Link-State Routing Design}
 
-The subset of OSPF that I implemented is split into two programs, \texttt{heartbeat} and \texttt{dtlsr}. Routers run both programs, and hosts run only \texttt{heartbeat}.
+TODO: include DefaultRoute2, and how I don't do neighbour discovery as it isn't relevant to the project.
+
+The link-state routing protocol that I implemented is split into two programs, \texttt{heartbeat} and \texttt{dtlsr}. Routers run both programs, and hosts run only \texttt{heartbeat}.
 
 \texttt{heartbeat} sends periodic heartbeat messages to all neighbouring nodes, notifying them that the connecting link is still up. The message is received by \texttt{dtlsr}.
 
@@ -137,15 +139,17 @@ These changes are detected in one of three ways:
 	An LSA is received from a neighbour.
 \end{enumerate}
 
-Both programs lend themselves to an event-driven design, and so I used file descriptors multiplexed with the \texttt{select} Unix call to detect and respond to events. Timer file descriptors trigger when they expire and sending socket file descriptors trigger when data arrives.
+Both programs lend themselves to an event-driven design, and so I used file descriptors multiplexed with the \texttt{select} Unix call to detect and respond to events. Timer file descriptors trigger when they expire and receiving socket file descriptors trigger when data arrives.
 
 Heartbeats and LSAs are recieved on sockets with distinct ports, allowing them to be differentiated easily. While CORE supports IPv6 routing, I restricted myself to IPv4 to reduce unnecessary implementation complexity.
 
+Routes are derived from the link-state graph, where we compute the shortest path from ourselves to every other node in the graph. The metric for a path is given as the number of hops in the path, which I chose over a more standard OSPF-style metric of bandwidth as I am more concerned with delay than throughput. Notably, if a link is DOWN, we disallow the pathfinding to go through that link. Once we have a list of paths we use the next-hop address to add each route to the routing table, after aggregation is done on routes with the same next-hop and network prefix.
+
 \subsubsection{Delay-Tolerant Modifications}
 
-For the delay-tolerant version, \texttt{dtlsr} can be recompiled with the \texttt{-DDTLSR} flag active, keeping \texttt{heartbeat} identical. \texttt{dtlsr} maintains the same implementation design decisions as above.
+For the delay-tolerant version, \texttt{dtlsr} can be recompiled with the \texttt{-DDTLSR} flag active, keeping \texttt{heartbeat} identical. \texttt{dtlsr} maintains the same implementation design decisions as above with a few additions.
 
-TODO: actually implement DTLSR and say what I did. Link status history, etc.
+Firstly in the pathfinding algorithm we allow routes through DOWN links, so that when we update the routing table packets will be sent along the path up to the DOWN link. The metric is modified to be, instead of hop count, an exponential time-average of the uptime history of the node, so that unreliable nodes will have a much higher cost. These uptime histories are maintained locally for neighbour links only, when we advertise our link state we share only the derived metric. The metric for a path is still the summation of costs of each link along the path.
 
 
 
