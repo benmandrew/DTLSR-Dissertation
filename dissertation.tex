@@ -27,7 +27,6 @@
             inner=2cm,
             outer=2cm]{geometry}
 
-
 % If you have any additional \usepackage commands, or other
 % macros or directives, put them here.  Remember not to edit
 % files in the template directory because any changes will
@@ -143,13 +142,13 @@ Both programs lend themselves to an event-driven design, and so I used file desc
 
 Heartbeats and LSAs are recieved on sockets with distinct ports, allowing them to be differentiated easily. While CORE supports IPv6 routing, I restricted myself to IPv4 to reduce unnecessary implementation complexity.
 
-Routes are derived from the link-state graph, where we compute the shortest path from ourselves to every other node in the graph. The metric for a path is given as the number of hops in the path, which I chose over a more standard OSPF-style metric of bandwidth as I am more concerned with delay than throughput. Notably, if a link is DOWN, we disallow the pathfinding to go through that link. Once we have a list of paths we use the next-hop address to add each route to the routing table, after aggregation is done on routes with the same next-hop and network prefix.
+Routes are derived from the link-state graph, where we compute the shortest path from ourselves to every other node in the graph using Dijkstra's algorithm. The metric for a path is given as the number of hops in the path, which I chose over a more standard OSPF-style metric depending on bandwidth as I am more concerned with delay than throughput. Notably, if a link is though to be DOWN, we disallow the pathfinding to go through that link. Once we have a list of paths we use the next-hop address to add each route to the routing table, after aggregation is done on routes with the same next-hop and network prefix.
 
 \subsubsection{Delay-Tolerant Modifications}
 
-For the delay-tolerant version, \texttt{dtlsr} can be recompiled with the \texttt{-DDTLSR} flag active, keeping \texttt{heartbeat} identical. \texttt{dtlsr} maintains the same implementation design decisions as above with a few additions.
+For the delay-tolerant version, \texttt{dtlsr} can be recompiled with the \texttt{-DDTLSR} flag active, keeping \texttt{heartbeat} identical. Our delay-tolerant version maintains many of the same implementation design decisions as above with a few additions.
 
-Firstly in the pathfinding algorithm we allow routes through DOWN links, so that when we update the routing table packets will be sent along the path up to the DOWN link. The metric is modified to be, instead of hop count, an exponential time-average of the uptime history of the node, so that unreliable nodes will have a much higher cost. These uptime histories are maintained locally for neighbour links only, when we advertise our link state we share only the derived metric. The metric for a path is still the summation of costs of each link along the path.
+Firstly in the pathfinding algorithm we allow routes through DOWN links, so that when we update the routing table packets will be sent along the path up to the DOWN link. The metric is modified to be, instead of hop count, an exponential time-average of the uptime history of all links along the path, so that nodes along unreliable paths will have a much higher cost. These uptime histories are maintained locally for neighbour links only, when we advertise our link state using LSAs we share only the derived metric. The metric for a path is still the summation of costs of each link along the path.
 
 
 
