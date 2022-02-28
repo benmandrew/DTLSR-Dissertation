@@ -35,6 +35,7 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{caption}
+\usepackage{subfig}
 
 \usepackage[absolute,overlay]{textpos}
 
@@ -106,9 +107,9 @@ The project was implemented almost entirely in C, with CORE-specific scripts in 
 The Common Open Research Emulator (CORE) is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces.
 
 \begin{minipage}{1\textwidth} \centering
-		\includegraphics[width=0.6\textwidth]{6-core}
-		\captionof{figure}{Example emulated network in the CORE GUI, showing routers and hosts.}
-	\end{minipage}
+	\includegraphics[width=0.6\textwidth]{6-core}
+	\captionof{figure}{Example emulated network in the CORE GUI, showing routers and hosts.}
+\end{minipage}
 
 Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{iperf} can be run on emulated endpoint hosts, making testing and evaluation of the network surprisingly simple.
 
@@ -153,6 +154,53 @@ Firstly in the pathfinding algorithm we allow routes through DOWN links, so that
 
 
 \section{Evaluation}
+
+Evaluation done using CORE. Measuring end-to-end packet delay under varying network conditions. UDP and TCP.
+
+To measure UDP performance I used \texttt{ping}, which while using ICMP emulates the behaviour of UDP well at higher throughputs, similarly having no flow and congestion control mechanisms.
+
+We first take baseline performance measurements, of the routing convergence time for LSR and DTLSR. Both use the same routing system so should have similar results.
+
+Measuring delay with \texttt{ping}, we use a variety of network topologies to demonstrate different properties of the routing algorithms.
+
+Firstly we have a topology with a single central connecting link, that we flap to create a network partition. In this example we flap link \texttt{n1-n2}.
+
+\begin{minipage}{1\textwidth} \centering
+	\includegraphics[width=0.7\textwidth]{partition}
+	\captionof{figure}{`Partition' network topology.}
+\end{minipage}
+
+\begin{figure}
+\begin{tabular}{c}
+  \includegraphics[width=190mm]{fig_partition_flap1} \\
+  (a) Flapping with period $T=\SI{2}{\s}$ (\SI{1}{\s} up, \SI{1}{\s} down). \\ [6pt]
+  \includegraphics[width=190mm]{fig_partition_flap10} \\
+  (b) Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down). \\[6pt]
+\end{tabular}
+\caption{Cumulative distributions of end-to-end delay between \texttt{n5} and \texttt{n6} under different routing algorithms, while flapping link \texttt{n1-n2}.}
+\end{figure}
+
+\pagebreak
+
+
+Our second topology is a `box'-shaped one, where we have a low-delay main route and a higher delay backup route when the main one goes down. In this example \texttt{n1-n4} is the main link that we flap, and \texttt{n1-n2-n3-n4} is our higher-delay backup route.
+
+\begin{minipage}{1\textwidth} \centering
+	\includegraphics[width=0.7\textwidth]{box}
+	\captionof{figure}{`Box' network topology.}
+\end{minipage}
+
+\begin{figure}
+\begin{tabular}{c}
+  \includegraphics[width=190mm]{fig_box_flap1} \\
+  (a) Flapping with period $T=\SI{2}{\s}$ (\SI{1}{\s} up, \SI{1}{\s} down). \\ [6pt]
+  \includegraphics[width=190mm]{fig_box_flap10} \\
+  (b) Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down). \\[6pt]
+\end{tabular}
+\caption{Cumulative distributions of end-to-end delay between \texttt{n5} and \texttt{n6} under different routing algorithms, while flapping link \texttt{n1-n4}.}
+\end{figure}
+
+\pagebreak
 
 \section{Conclusions}
 
