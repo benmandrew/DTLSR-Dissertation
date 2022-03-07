@@ -111,7 +111,7 @@ The Common Open Research Emulator (CORE) is a network emulator that models nodes
 	\captionof{figure}{Example emulated network in the CORE GUI, showing routers and hosts.}
 \end{minipage}
 
-Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{iperf} can be run on emulated endpoint hosts, making testing and evaluation of the network surprisingly simple.
+Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network surprisingly simple.
 
 Link properties can be programmatically customised through the Python API, with properties including bandwidth, delay, loss, and jitter. This will aid greatly in evaluation, for example simulating network partitions.
 
@@ -119,11 +119,9 @@ One limitation is that CORE operates in real-time using the OS's clock, and thus
 
 \subsection{Link-State Routing Design}
 
-TODO: include DefaultRoute2, and how I don't do neighbour discovery as it isn't relevant to the project.
-
 The link-state routing protocol that I implemented is split into two programs, \texttt{heartbeat} and \texttt{dtlsr}. Routers run both programs, and hosts run only \texttt{heartbeat}.
 
-\texttt{heartbeat} sends periodic heartbeat messages to all neighbouring nodes, notifying them that the connecting link is still up. The message is received by \texttt{dtlsr}.
+\texttt{heartbeat} sends periodic heartbeat messages to all neighbouring nodes, notifying them that the connecting link is still up. The message is received by \texttt{dtlsr}. Hosts run \texttt{heartbeat} to notify their gateway router of their existence, so that the router can advertise the corresponding route.
 
 \texttt{dtlsr} implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends link-state announcements (LSAs) in response to detected changes in the network.
 
@@ -143,6 +141,8 @@ Both programs lend themselves to an event-driven design, and so I used file desc
 
 Heartbeats and LSAs are recieved on sockets with distinct ports, allowing them to be differentiated easily. While CORE supports IPv6 routing, I restricted myself to IPv4 to reduce unnecessary implementation complexity.
 
+A heartbeat message is a UDP packet with only header, no payload. An LSA is a UDP packet whose payload is the sending node's graph representation of the network, simply copied into the payload using \texttt{memcpy}. The graph representation uses statically sized arrays rather than dynamically sized `\texttt{malloc}ed' ones, to make allocation and indexing simpler. While it would be more space-efficient to pack the graph into a more compressed structure for sending over the link, the network topologies that I use in the evaluation are not large enough for this to be an issue. It would be a simple fix if this became an issue.
+
 Routes are derived from the link-state graph, where we compute the shortest path from ourselves to every other node in the graph using Dijkstra's algorithm. The metric for a path is given as the number of hops in the path, which I chose over a more standard OSPF-style metric depending on bandwidth as I am more concerned with delay than throughput. Notably, if a link is though to be DOWN, we disallow the pathfinding to go through that link. Once we have a list of paths we use the next-hop address to add each route to the routing table, after aggregation is done on routes with the same next-hop and network prefix.
 
 \subsubsection{Delay-Tolerant Modifications}
@@ -151,6 +151,13 @@ For the delay-tolerant version, \texttt{dtlsr} can be recompiled with the \textt
 
 Firstly in the pathfinding algorithm we allow routes through DOWN links, so that when we update the routing table packets will be sent along the path up to the DOWN link. The metric is modified to be, instead of hop count, an exponential time-average of the uptime history of all links along the path, so that nodes along unreliable paths will have a much higher cost. These uptime histories are maintained locally for neighbour links only, when we advertise our link state using LSAs we share only the derived metric. The metric for a path is still the summation of costs of each link along the path.
 
+An interesting edge case is when a link goes down connecting a host with its gateway router. As the host runs \texttt{heartbeat} the router will be aware that the link is down and will buffer any traffic coming in along the advertised route with the host as the destination. However any traffic the host wants to send outwards will not be buffered by itself as it is not running any `delay-tolerant' routing software; the host will have to deal with retransmissions as it will not buffer any data locally. We could theoretically develop a minimal version of the protocol that runs on hosts and only does buffering to solve this issue.
+
+\subsection{Implementation Practicalities}
+
+Some parts of the implementation were hard-coded or have inefficient solutions to aid in creating a functional piece of software that could be evaluated more quickly. These are sections that have no impact on the evaluation of the protocol as a solution to the routing problem, or are even completely unrelated to routing in general.
+
+As an example I ran into the issue of `neighbour discovery', where nodes generally use ARP to discover the existence of neighbouring nodes on their interfaces. The ARP table in CORE proved unreliable, and as this is a link-layer problem unrelated to routing I simply hardcoded all immediate neighbours in configuration files. Implementing actual neighbour discovery would provide no practical benefits to the evaluation, and could even negatively impact it if my implementation was unreliable or had varying performance.
 
 
 \section{Evaluation}
@@ -163,7 +170,7 @@ We first take baseline performance measurements, of the routing convergence time
 
 Measuring delay with \texttt{ping}, we use a variety of network topologies to demonstrate different properties of the routing algorithms.
 
-Firstly we have a topology with a single central connecting link, that we flap to create a network partition. In this example we flap link \texttt{n1-n2}.
+Firstly we have a topology with a single central connecting link, that we flap to create a network partition. In this example we flap link \texttt{n1-n2}. Every link has \SI{1}{\ms} of delay.
 
 \begin{minipage}{1\textwidth} \centering
 	\includegraphics[width=0.7\textwidth]{partition}
@@ -183,7 +190,7 @@ Firstly we have a topology with a single central connecting link, that we flap t
 \pagebreak
 
 
-Our second topology is a `box'-shaped one, where we have a low-delay main route and a higher delay backup route when the main one goes down. In this example \texttt{n1-n4} is the main link that we flap, and \texttt{n1-n2-n3-n4} is our higher-delay backup route.
+Our second topology is a `box'-shaped one, where we have a low-delay main route and a higher delay backup route when the main one goes down. In this example \texttt{n1-n4} is the main link that we flap, and \texttt{n1-n2-n3-n4} is our higher-delay backup route. Every link has \SI{1}{\ms} of delay.
 
 \begin{minipage}{1\textwidth} \centering
 	\includegraphics[width=0.7\textwidth]{box}
@@ -201,6 +208,8 @@ Our second topology is a `box'-shaped one, where we have a low-delay main route 
 \end{figure}
 
 \pagebreak
+
+Our third topology is the same as the second, but we give the backup link a much higher delay than before. Every link has \SI{1}{\ms} of delay except for \texttt{n2-n3}, which has been set to have \SI{20}{\ms} of delay.
 
 \section{Conclusions}
 
