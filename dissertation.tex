@@ -128,13 +128,13 @@ The link-state routing protocol that I implemented is split into two programs, \
 These changes are detected in one of three ways:
 \begin{enumerate}
 	\item
-	A heartbeat message is received from a neighbour with a DOWN link.
+	A heartbeat message is received from a neighbour with a DOWN link. We set the link to be UP.
 	
 	\item
-	A heartbeat is not received in time from a neighbour with an UP link.
+	A heartbeat is not received in time from a neighbour with an UP link. We set the link to be DOWN.
 	
 	\item
-	An LSA is received from a neighbour.
+	An LSA is received from a neighbour. We merge our current graph with that of our neighbour to get the most recent information.
 \end{enumerate}
 
 Both programs lend themselves to an event-driven design, and so I used file descriptors multiplexed with the \texttt{select} Unix call to detect and respond to events. Timer file descriptors trigger when they expire and receiving socket file descriptors trigger when data arrives.
@@ -143,15 +143,36 @@ Heartbeats and LSAs are recieved on sockets with distinct ports, allowing them t
 
 A heartbeat message is a UDP packet with only header, no payload. An LSA is a UDP packet whose payload is the sending node's graph representation of the network, simply copied into the payload using \texttt{memcpy}. The graph representation uses statically sized arrays rather than dynamically sized `\texttt{malloc}ed' ones, to make allocation and indexing simpler. While it would be more space-efficient to pack the graph into a more compressed structure for sending over the link, the network topologies that I use in the evaluation are not large enough for this to be an issue. It would be a simple fix if this became an issue.
 
-Routes are derived from the link-state graph, where we compute the shortest path from ourselves to every other node in the graph using Dijkstra's algorithm. The metric for a path is given as the number of hops in the path, which I chose over a more standard OSPF-style metric depending on bandwidth as I am more concerned with delay than throughput. Notably, if a link is though to be DOWN, we disallow the pathfinding to go through that link. Once we have a list of paths we use the next-hop address to add each route to the routing table, after aggregation is done on routes with the same next-hop and network prefix.
+\subsubsection{Local and Global Link-State}
 
-\subsubsection{Delay-Tolerant Modifications}
+We have two levels of representation for our network representation: a minimal global representation of the entire network and a detailed representation of the immediate neighbourhood of the local node.
 
-For the delay-tolerant version, \texttt{dtlsr} can be recompiled with the \texttt{-DDTLSR} flag active, keeping \texttt{heartbeat} identical. Our delay-tolerant version maintains many of the same implementation design decisions as above with a few additions.
+For each node in the global graph, we store for each link information like the source IP, neighbour destination IP, the status of the link, the derived metric associated with the link, and a timestamp specifying how old our knowledge of that link is, for merging purposes.
 
-Firstly in the pathfinding algorithm we allow routes through DOWN links, so that when we update the routing table packets will be sent along the path up to the DOWN link. The metric is modified to be, instead of hop count, an exponential time-average of the uptime history of all links along the path, so that nodes along unreliable paths will have a much higher cost. These uptime histories are maintained locally for neighbour links only, when we advertise our link state using LSAs we share only the derived metric. The metric for a path is still the summation of costs of each link along the path.
+The local graph consists solely of our node along with more in-depth information about links connecting us to our immediate neighbours. Along with all of the information contained in a global node, we also have for each link a timer for timing out heartbeats and the interface which that link goes out on. We take the locally-derived information and feed it into the global graph, which then gets shared with the rest of the network via LSAs.
+
+\subsubsection{Route Generation}
+
+Routes are derived from the link-state graph, where we compute the shortest path from ourselves to every other node in the graph using Dijkstra's algorithm. The metric for a path is given as the number of hops in the path, which I chose over a more standard OSPF-style metric depending on bandwidth as I am more concerned with delay than throughput. Notably, if a link is though to be DOWN, we disallow the pathfinding to go through that link.
+
+After pathfinding we have for each destination address a `next-hop' address. We first generalise each specific destination address to its 24 bit subnet, zeroing out the last 8 bits. Many of these routes can then be merged together, for example if two destinations are part of a single subnet and have the same next-hop. This route aggregation reduces the size of the routing table.
+
+We keep track of which routes we have previously added to the routing table, and mark off those that we have regenerated from the updated graph. If we have previously added routes that are not marked off, then we know that route no longer exists and we can remove it from the routing table. This may happen if a link goes down or a better alternative route appears.
+
+With invalid routes removed, we can then add all of our new routes to the routing table. Manipulation of the Unix routing table is done through the \texttt{ioctl}, a system call for interacting with OS devices through a file descriptor interface. We pass a flag corresponding to route addition or deletion, along with a `\texttt{route}' struct containing the route details.
+
+\subsection{Delay-Tolerant Modifications}
+
+For the delay-tolerant version, \texttt{dtlsr} can be recompiled with the \texttt{-DDTLSR} flag active, keeping \texttt{heartbeat} identical. The modifications made are enabled/disabled simply by \texttt{\#ifdef DTLSR} preprocessor switches. Our delay-tolerant version maintains many of the same implementation design decisions as above with a few additions.
+
+Firstly, in the pathfinding algorithm we allow routes through DOWN links so that when we update the routing table packets will be sent along the path up to the DOWN link, and buffered there until the link comes back up. The metric is modified to be, instead of hop count, an exponential time-average of the uptime history of all links along the path, so that nodes along unreliable paths will have a much higher cost. These uptime histories are maintained locally for neighbour links only; when we advertise our link state using LSAs we share only the derived metric. The metric for a path is still the summation of costs of each link along the path, which is a natural way to combine delay-dependent metrics.
 
 An interesting edge case is when a link goes down connecting a host with its gateway router. As the host runs \texttt{heartbeat} the router will be aware that the link is down and will buffer any traffic coming in along the advertised route with the host as the destination. However any traffic the host wants to send outwards will not be buffered by itself as it is not running any `delay-tolerant' routing software; the host will have to deal with retransmissions as it will not buffer any data locally. We could theoretically develop a minimal version of the protocol that runs on hosts and only does buffering to solve this issue.
+
+\subsubsection{Packet Buffering}
+
+When a link is DOWN, in our delay-tolerant context we may still advertise routes going through it as if it was open, and so we may have traffic routed through us expecting to move through the link. Thus we must buffer this traffic locally until either the link comes back up or a better alternative route appears, at which point we send it on.
+
 
 \subsection{Implementation Practicalities}
 
