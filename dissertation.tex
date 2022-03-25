@@ -35,7 +35,7 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{caption}
-\usepackage{subfig}
+\usepackage{subcaption}
 
 \usepackage[absolute,overlay]{textpos}
 
@@ -107,7 +107,7 @@ The project was implemented almost entirely in C, with CORE-specific scripts in 
 The Common Open Research Emulator (CORE) is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces.
 
 \begin{minipage}{1\textwidth} \centering
-	\includegraphics[width=0.6\textwidth]{6-core}
+	\includegraphics[width=0.6\textwidth]{core_topology}
 	\captionof{figure}{Example emulated network in the CORE GUI, showing routers and hosts.}
 \end{minipage}
 
@@ -142,6 +142,8 @@ Both programs lend themselves to an event-driven design, and so I used file desc
 Heartbeats and LSAs are recieved on sockets with distinct ports, allowing them to be differentiated easily. While CORE supports IPv6 routing, I restricted myself to IPv4 to reduce unnecessary implementation complexity.
 
 A heartbeat message is a UDP packet with only header, no payload. An LSA is a UDP packet whose payload is the sending node's graph representation of the network, simply copied into the payload using \texttt{memcpy}. The graph representation uses statically sized arrays rather than dynamically sized `\texttt{malloc}ed' ones, to make allocation and indexing simpler. While it would be more space-efficient to pack the graph into a more compressed structure for sending over the link, the network topologies that I use in the evaluation are not large enough for this to be an issue. It would be a simple fix if this became an issue.
+
+We send LSAs to our neighbours whenever we detect a change in the network (by heartbeat or LSA reception). This means we propagate link-state information as quickly as possible, minimising convergence time. We also send only when we detect changes with respect to our knowledge of the network so that we don't cause infinite looping of updates.
 
 \subsubsection{Local and Global Link-State}
 
@@ -183,7 +185,52 @@ As an example I ran into the issue of `neighbour discovery', where nodes general
 
 \section{Evaluation}
 
-Evaluation done using CORE. Measuring end-to-end packet delay under varying network conditions. UDP and TCP.
+The evaluation is done using the CORE emulator. We define a network topology of hosts and routers, with the routers running either the LSR or DTLSR routing protocol, in order to compare the performance of both for a variety of metrics on a variety of different topologies.
+
+We first determine the convergence behaviour of the protocols, to provide a baseline of the testing environment. This is done with LSR, but as DTLSR's system for this is identical the results are valid for both.
+
+We then do a full comparison of the delay of packet arrivals in LSR and DTLSR in a number of topologies, importantly providing the overall packet loss percentage as well.
+
+\subsection{Convergence}
+
+The convergence time of the link-state protocol, is the time between the state of the graph updating (e.g. a link going down), and that change being detected and incorporated into the routing table of a particular node in the network. As changes are propagated from node-to-node, we expect that convergence time increases as we look at nodes further from the changing link. We will distinguish the convergence time in response to links going down, and links coming back up, as these are detected in different ways.
+
+\begin{minipage}{1\textwidth} \centering
+	\includegraphics[width=0.7\textwidth]{conv_topology}
+	\captionof{figure}{`Convergence' network topology. We flap link \texttt{n1-n2}}
+\end{minipage}
+
+Our testing topology is a long chain of routers, with the flapping link at one end and the update messages being propagated down the chain. This gives us a way to detect how long it takes a node to detect the change for each number of router `hops'. We consider the zero-hop node \texttt{n2} to be that directly attached to the flapping link.
+
+We flap the link using the Python scripting API that CORE provides, waiting 4 seconds between each state change - long enough that we guarantee that all nodes have fully converged before we modify the state again. We log the time when this occurs.
+
+We monitor each node's routing table using the \texttt{route} Unix utility, with a simple Python script that logs the time when we detect that the route corresponding to node \texttt{n1} has either appeared or disappeared from the table, respective to the link being up or down. We can then analyse the data to determine the time between the link changing state, and each node detecting this change and modifying its routing table accordingly.
+
+
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{conv_1ms}
+  \caption{Link delay of \SI{1}{\ms}}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{conv_100ms}
+  \caption{Link delay of \SI{100}{\ms}}
+\end{subfigure}
+\caption{Protocol convergence times, for both the link going down, and the link coming back up.}
+\end{figure}
+
+
+
+
+
+
+\subsection{Delay}
+
+Measuring end-to-end packet delay under varying network conditions. UDP and TCP.
 
 To measure UDP performance I used \texttt{ping}, which while using ICMP emulates the behaviour of UDP well at higher throughputs, similarly having no flow and congestion control mechanisms.
 
@@ -194,15 +241,15 @@ Measuring delay with \texttt{ping}, we use a variety of network topologies to de
 Firstly we have a topology with a single central connecting link, that we flap to create a network partition. In this example we flap link \texttt{n1-n2}. Every link has \SI{1}{\ms} of delay.
 
 \begin{minipage}{1\textwidth} \centering
-	\includegraphics[width=0.7\textwidth]{partition}
+	\includegraphics[width=0.7\textwidth]{delay_partition_topology}
 	\captionof{figure}{`Partition' network topology.}
 \end{minipage}
 
 \begin{figure}
 \begin{tabular}{c}
-  \includegraphics[width=190mm]{fig_partition_flap1} \\
+  \includegraphics[width=190mm]{delay_partition_flap1} \\
   (a) Flapping with period $T=\SI{2}{\s}$ (\SI{1}{\s} up, \SI{1}{\s} down). \\ [6pt]
-  \includegraphics[width=190mm]{fig_partition_flap10} \\
+  \includegraphics[width=190mm]{delay_partition_flap10} \\
   (b) Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down). \\[6pt]
 \end{tabular}
 \caption{Cumulative distributions of end-to-end delay between \texttt{n5} and \texttt{n6} under different routing algorithms, while flapping link \texttt{n1-n2}.}
@@ -214,15 +261,15 @@ Firstly we have a topology with a single central connecting link, that we flap t
 Our second topology is a `box'-shaped one, where we have a low-delay main route and a higher delay backup route when the main one goes down. In this example \texttt{n1-n4} is the main link that we flap, and \texttt{n1-n2-n3-n4} is our higher-delay backup route. Every link has \SI{1}{\ms} of delay.
 
 \begin{minipage}{1\textwidth} \centering
-	\includegraphics[width=0.7\textwidth]{box}
+	\includegraphics[width=0.7\textwidth]{delay_box_topology}
 	\captionof{figure}{`Box' network topology.}
 \end{minipage}
 
 \begin{figure}
 \begin{tabular}{c}
-  \includegraphics[width=190mm]{fig_box_flap1} \\
+  \includegraphics[width=190mm]{delay_box_flap1} \\
   (a) Flapping with period $T=\SI{2}{\s}$ (\SI{1}{\s} up, \SI{1}{\s} down). \\ [6pt]
-  \includegraphics[width=190mm]{fig_box_flap10} \\
+  \includegraphics[width=190mm]{delay_box_flap10} \\
   (b) Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down). \\[6pt]
 \end{tabular}
 \caption{Cumulative distributions of end-to-end delay between \texttt{n5} and \texttt{n6} under different routing algorithms, while flapping link \texttt{n1-n4}.}
