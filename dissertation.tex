@@ -214,29 +214,32 @@ We monitor each node's routing table using the \texttt{route} Unix utility, with
   \centering
   \includegraphics[width=1\linewidth]{conv_1ms}
   \caption{Link delay of \SI{1}{\ms}}
+  \label{fig:conv_1ms}
 \end{subfigure}%
 \begin{subfigure}{.5\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{conv_100ms}
   \caption{Link delay of \SI{100}{\ms}}
+  \label{fig:conv_100ms}
 \end{subfigure}
-\caption{Protocol convergence times, for both the link going down, and the link coming back up.}
+\caption{Protocol convergence times, for both the link going down, and the link coming back up. Error bars are the interquartile range.}
+\label{fig:conv}
 \end{figure}
 
+We do convergence testing with link delays of \SI{1}{\ms} and \SI{100}{\ms}. A link delay of \SI{100}{\ms} is large enough to verify that the convergence time depends on the hop count, from the propagation time, while a delay of \SI{1}{\ms} is what we use for the rest of the evaluation, so it is useful to include as a baseline.
 
+In \ref{fig:conv_1ms} we see that the zero-hop node \texttt{n2} has a `convergence' time greatly less than the rest of the nodes, which is because \texttt{n2} detects the change using the link-layer heartbeat section of the protocol. For the link being down our detection depends on a heartbeat timeout after not receiving a heartbeat. For being up our detection depends on receiving a heartbeat from our neighbour. We justify the time difference between up and down with the fact that the heartbeat timeout must necessarily be longer than the heartbeat sending period.
 
+Hop counts of 1 and above rely on the network-layer section of the protocol, with link-state information being sent from node to node. As LSAs are propagated as soon as they are received, we are bounded mainly by the link delay, which we can see in the difference between the higher hop counts of \ref{fig:conv_1ms} and \ref{fig:conv_100ms}. In \ref{fig:conv_1ms} the delay is so small as for each subsequent hop to be indistinguishable from the last, but in \ref{fig:conv_100ms} we see the delay increasing the convergence time for each hop cumulatively.
 
+It is interesting to note that subsequent hops depend on the cumulative time added by all previous hops, due to propagation. As the difference between up and down remains constant after the zero-hop node, we can conclude that the network-layer behaviour is the same for up and down.
 
 
 \subsection{Delay}
 
-Measuring end-to-end packet delay under varying network conditions. UDP and TCP.
+The main body of the evaluation is comparing the distribution of end-to-end packet delays for LSR and DTLSR in a number of different network environments, varying topology and failure mode. This demonstrates the different properties of the routing algorithms, showing advantages and disadvantages of both.
 
-To measure UDP performance I used \texttt{ping}, which while using ICMP emulates the behaviour of UDP well at higher throughputs, similarly having no flow and congestion control mechanisms.
-
-We first take baseline performance measurements, of the routing convergence time for LSR and DTLSR. Both use the same routing system so should have similar results.
-
-Measuring delay with \texttt{ping}, we use a variety of network topologies to demonstrate different properties of the routing algorithms.
+We approximate UDP with \texttt{ping}, which despite using ICMP emulates the behaviour of UDP well at higher throughputs, similarly having no flow and congestion control mechanisms.
 
 Firstly we have a topology with a single central connecting link, that we flap to create a network partition. In this example we flap link \texttt{n1-n2}. Every link has \SI{1}{\ms} of delay.
 
@@ -277,7 +280,14 @@ Our second topology is a `box'-shaped one, where we have a low-delay main route 
 
 \pagebreak
 
-Our third topology is the same as the second, but we give the backup link a much higher delay than before. Every link has \SI{1}{\ms} of delay except for \texttt{n2-n3}, which has been set to have \SI{20}{\ms} of delay.
+\subsubsection{TCP}
+
+TCP fundamentally does not work well in a variable-delay environment. It works best when the estimated RTT is close to the real delay; in the case where the delay suddenly increases (e.g. a link failure), there will be a long string of packet timeouts in quick succession, dropping the sending window to its minimum size due to the multiplicative decrease (AIMD). Even if these packets have been buffered up before the failure as in DTLSR, the sending node will retransmit them, wasting network resources. If the failure is longer-term, we may retransmit multiple times, ending up buffering many identical copies of the packet before the link failure. This has a great risk of overflowing the buffer with redundant data.
+
+
+
+
+
 
 \section{Conclusions}
 
