@@ -68,6 +68,42 @@
 
 \section{Introduction}
 
+\subsection{Background}
+
+Network stack split into layers. Network (routing) layer handles routing decisions over multiple hops, to follow an optimal path to the destination. One class of routing algorithms called link-state protocols aim for every router in the network to have a full view of the network topology
+
+Traditional routing protocols such as OSPF treat failures as final, they will never come back. If alternate routes exist they route around the failure, but if none does (i.e. the network has been partitioned) then no data can be sent at all.
+
+However in environments such as developing regions with unreliable network infrastructure, temporary link failures from congestion or unreliable power are a common occurrence. In this case the performance of traditional routing protocols can drop dramatically, in some cases preventing any end-to-end communication entirely. The routing protocols used in these situations must be designed to compensate for these failures in order to provide good service.
+
+One approach to make traditional routing more `delay-tolerant' by allowing routing paths to be advertised through down links, and to use a `store-and-forward' mechanism for packet forwarding where if the link on the outgoing interface is down, any packets incoming to the router that would be forwarded out on that interface are buffered. When the link comes back up, all of the buffered packets are sent out of the desired interface. This maintains end-to-end connectivity as much as possible and decreases the drop rate of packets dramatically.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.45\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{pathalogical_topology}
+  \label{fig:pathalogical_topology}
+\end{subfigure}%
+\begin{subfigure}{.55\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{pathalogical_graph}
+  \label{fig:pathalogical_graph}
+\end{subfigure}
+\caption{Pathalogical case where a store-and-forward technique allows packets to be delivered despite no end-to-end connection. Traditional techniques will drop all packets.}
+\label{fig:pathalogical}
+\end{figure}
+
+\subsection{Objectives of the Project}
+
+The primary goal of this project is to compare the performance of a protocol using traditional link-state routing with a modified version implementing delay-tolerant features. To have full control over the behaviour of the protocols both are implemented from scratch in C, with the design based off of the OSPF protocol. The evaluation will focus mainly on the drop rate of packets, as well as the delay of packet arrivals.
+
+\subsection{Related Work}
+
+There has been much research into `mobile ad-hoc networks', where mobile nodes move around and have intermittent and unpredictable connectivity with other nodes. This requires a dramatic change in network protocols, but for our situation it is not necessary. Link failures in a mobile network are due to topology changes, but networks in developing regions have largely static topologies with modem or satellite links, where link failures - mostly due to congestion or unreliable power - do not imply that the topology has changed. When the failure is resolved the topology will be the same as before. We are thus able to use a well-understood link-state paradigm with comparatively minor modifications, making deployment far easier and minimising wasted resources from unnecessary features.
+
+
+
 \section{Preparation}
 
 \section{Implementation}
@@ -198,6 +234,7 @@ The convergence time of the link-state protocol, is the time between the state o
 \begin{minipage}{1\textwidth} \centering
 	\includegraphics[width=0.7\textwidth]{conv_topology}
 	\captionof{figure}{`Convergence' network topology. We flap link \texttt{n1-n2}}
+	\label{fig:conv_topology}
 \end{minipage}
 
 Our testing topology is a long chain of routers, with the flapping link at one end and the update messages being propagated down the chain. This gives us a way to detect how long it takes a node to detect the change for each number of router `hops'. We consider the zero-hop node \texttt{n2} to be that directly attached to the flapping link.
@@ -246,6 +283,7 @@ Firstly we have a topology with a single central connecting link, that we flap t
 \begin{minipage}{1\textwidth} \centering
 	\includegraphics[width=0.7\textwidth]{delay_partition_topology}
 	\captionof{figure}{`Partition' network topology.}
+	\label{fig:partition_topology}
 \end{minipage}
 
 \begin{figure}
