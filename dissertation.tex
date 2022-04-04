@@ -293,6 +293,8 @@ The main body of the evaluation is comparing the distribution of end-to-end pack
 
 We want to evaluate with UDP to minimise any interference that the transport layer may have on testing. We approximate UDP with the Unix \texttt{ping} utility, which despite using ICMP emulates the behaviour of UDP well at higher throughputs, similarly having no flow and congestion control mechanisms. We take the `delay' of a packet as being the round-trip time as computed by \texttt{ping}.
 
+We plot the distribution of delays as a logarithmic CDF plot with the y-axis signifying the proportion of packets. When the line goes off the edge of the graph on the right without reaching 1.0 on the y-axis, it shows that the remaining proportion of packets was dropped. I don't include retransmissions as this is a transport-layer responsibility.
+
 \subsubsection{Partial Partition Topology}
 
 Firstly we have a topology with a single central connecting link, that we flap up and down. When the link is down it creates a network partition. In this example we flap link \texttt{n1-n2}. Every link has \SI{1}{\ms} of delay.
@@ -302,8 +304,6 @@ Firstly we have a topology with a single central connecting link, that we flap u
 	\captionof{figure}{`Partition' network topology.}
 	\label{fig:partition_topology}
 \end{minipage}
-
-We plot the distribution of delays as a logarithmic CDF plot with the y-axis signifying the proportion of packets. When the line goes off the edge of the graph on the right without reaching 1.0 on the y-axis, it shows that the remaining proportion of packets was dropped. I don't include retransmissions as this is a transport-layer responsibility.
 
 \begin{figure}[H]
 \centering
@@ -325,10 +325,16 @@ We plot the distribution of delays as a logarithmic CDF plot with the y-axis sig
 
 We see in both cases that LSR successfully delivers approximately half of the packets, consistent with the fact that the network is partitioned for half of the time. DTLSR achieves a much higher delivery proportion in both cases due to packets being buffered at the router before the failed link, then forwarded on once the link comes back up. We also see that higher frequency flapping creates a higher drop rate overall for both protocols, which can be explained by considering that when a link goes down it takes time for the router to detect this change, in which time any incoming packets are sent out of the interface and are summarily deleted. It is only once the state change is detected that we change our routing tables or start buffering packets, for LSR and DTLSR respectively. The higher the flapping frequency, the higher proportion of time we spend in these `boundary' periods, and thus the more packets we drop for both LSR and DTLSR.
 
+For DTLSR we have the short delay of \SI{6}{\ms} for approximately half of the packets, and for the other half the delay increases linearly (showing as an exponential curve in the $\log x$-$y$ graph). The first half is due to the link being up half of the time, so all packets sent in this period take approximately the same time to arrive. The second half is a little more subtle, and is due to the packet replaying behaviour. \texttt{ping} sends packets at a constant interval but the buffered packets are replayed all at once when the link comes back up, thus the earlier that a ping is sent in the link-down period, the greater time delay there will be between the client sending the packet and receiving a reply.
+
+This variability in delay can be undesirable, but it is not something that can be fixed as partitioning is a fundamental property of the network that we can't work around. Even a perfect retransmission protocol would run into the same variability issue, retransmitting all of the dropped packets as soon as the link came back up. Users of the network should take this into account with the applications that they decide to run on it, and ensure that there are not strict low-latency requirements with applications like video conferencing or real-time games.
+
+This network topology is consistent with those seen in remote regions even in developed countries, where there is a single main link being relied on. If that link becomes unreliable, then we have shown that using a delay-tolerant routing protocol greatly increases the proportion of packets delivered. One could imagine a situation where the link is only up for a small proportion of the total time, instead of half-and-half, in which case DTLSR would show an even greater advantage over LSR.
+
 
 \subsubsection{Box Topology}
 
-Our second topology is a `box'-shaped one, where we have a low-delay main route and a higher delay backup route when the main one goes down. In this example \texttt{n1-n4} is the main link that we flap, and \texttt{n1-n2-n3-n4} is our higher-delay backup route. Every link has \SI{1}{\ms} of delay.
+Our second topology is a `box'-shaped one, where we have a low-delay main route and a higher delay backup route when the main one goes down. In this example \texttt{n3-n4} is the main link that we flap, and \texttt{n3-n5-n6-n4} is our higher-delay backup route. Every link has \SI{1}{\ms} of delay. Thus from \texttt{n1} to \texttt{n2}, our main route has a delay of \SI{3}{\ms} and our backup route has a delay of \SI{5}{\ms}.
 
 \begin{minipage}{1\textwidth} \centering
 	\includegraphics[width=0.5\textwidth]{delay_box_topology}
@@ -349,14 +355,43 @@ Our second topology is a `box'-shaped one, where we have a low-delay main route 
   \caption{Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down).}
   \label{fig:box_20}
 \end{subfigure}
-\caption{Cumulative distributions of end-to-end delay between \texttt{n5} and \texttt{n6} under different routing algorithms, while flapping link \texttt{n1-n4}.}
+\caption{Cumulative distributions of end-to-end delay between \texttt{n1} and \texttt{n2} under different routing algorithms, while flapping link \texttt{n3-n4}.}
 \label{fig:box}
 \end{figure}
+
+We see in both cases that LSR successfully switches to the backup link whenever the main link goes down, shown by a large proportion of packets having an RTT of approximately \SI{10}{\ms}. As described above, it takes time for the protocol to detect that the link is down and to respond by modifying the routing table, which causes packet losses. Increasing the flapping frequency increases the number of these boundary periods, thus increasing the proportion of time dropping packets. This is reflected in the higher proportion of packets being dropped with a shorter flapping period for LSR.
+
+We again see that DTLSR achieves a higher proportion of delivered packets than LSR. While it is a lot closer than in the partition topology, there is still a marked difference. DTLSR does not choose to switch to the backup link, and instead continues buffering packets waiting for the main link to come back up. It is interesting to compare LSR and DTLSR in these periods where the main link is down. LSR achieves a much lower delay than DTLSR by switching to the backup link, but DTLSR delivers those packets much more reliably. The choice here likely depends on what applications the user wants to run over the network. For applications with strict low-latency requirements like video conferencing software, LSR is likely better, but for applications that want reliable transfer with minimal retransmissions like bulk file transfers, DTLSR is the better choice.
+
+As stated above this kind of topology is uncommon in remote and developing regions due to the cost of adding backup links. However it is useful to contrast LSR and DTLSR in other environments to see fully their strengths and weaknesses.
 
 
 \subsubsection{Full Partition Topology}
 
 Our third topology is similar to the above `partition' topology, but instead partitions the network with two links in sequence that have anti-correlated failures (When one is up, the other is down). Thus there is never any end-to-end connection and the network is technically always partitioned, but using the `store-and-forward' mechanism some packet delivery can be achieved. This is not as ridiculous a case as it may seem. If a region has unreliable or limited power, there may only be power to turn on a subset of the routers at a time, likely in an unpredictable pattern.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{delay_full_partition_topology}
+  \label{fig:full_partition_topology}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{delay_full_partition_graph}
+  \label{fig:full_partition_graph}
+\end{subfigure}
+\caption{`Full partition' network topology with anti-correlated failures.}
+\label{fig:full_partition}
+\end{figure}
+
+\begin{minipage}{1\textwidth} \centering
+	\includegraphics[width=0.75\textwidth]{delay_full_partition_flap5}
+	\captionof{figure}{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
+\end{minipage}
+
+We see that LSR achieves zero packet delivery, compared to DTLSR achieving x percent overall. This is notably much more serious than the results above, where LSR achieved a lower but still greater-than-zero delivery, as retransmission-based transport protocols rely on the fact that there is \textit{some} packet delivery, where in the limit of time with retransmissions the probability of delivery approaches 1. However with zero delivery, this limit stays at zero and thus our unreliable network cannot be made reliable with a transport layer protocol. We rely entirely on the routing layer's buffering to achieve any communication whatsoever.
 
 \subsubsection{TCP}
 
