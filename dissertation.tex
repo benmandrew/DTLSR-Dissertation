@@ -70,6 +70,8 @@ The project contains 4605 lines of code, consisting of 3944 lines of C and 661 l
 
 \section{Introduction}
 
+This project aims to evaluate delay-tolerant modifications made to a link-state routing protocol for network environments with low reliability. It is motivated by similar conditions being seen in network infrastructure in remote developing regions, where issues such as unreliable power can cause a severe drop in packet delivery. We see how modifications made to the routing protocol can reduce this.
+
 \subsection{Background}
 
 One problem in a network is how to route packets from one node to another, on a path through the network hopping from node to node. A routing protocol describes how routers communicate with each other to distribute information about the topology of the network in order for each router to choose optimal routes to other nodes, and thus make optimal local forwarding decisions for incoming packets. One class of routing algorithms called link-state protocols aim for every router in the network to have a full view of the network topology, so when a change occurs in the network (e.g. a link fails), that information is propagated outwards from router to router, with the change being incorporated into each router's internal representation of the network.
@@ -304,13 +306,21 @@ Firstly we have a topology with a single central connecting link, that we flap u
 We plot the distribution of delays as a logarithmic CDF plot with the y-axis signifying the proportion of packets. When the line goes off the edge of the graph on the right without reaching 1.0 on the y-axis, it shows that the remaining proportion of packets was dropped. I don't include retransmissions as this is a transport-layer responsibility.
 
 \begin{figure}[H]
-\begin{tabular}{c}
-  \includegraphics[width=190mm]{delay_partition_flap1} \\
-  (a) Flapping with period $T=\SI{2}{\s}$ (\SI{1}{\s} up, \SI{1}{\s} down). \\ [6pt]
-  \includegraphics[width=190mm]{delay_partition_flap10} \\
-  (b) Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down). \\[6pt]
-\end{tabular}
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{delay_partition_flap5}
+  \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
+  \label{fig:partition_5}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{delay_partition_flap20}
+  \caption{Flapping with period $T=\SI{40}{\s}$ (\SI{20}{\s} up, \SI{20}{\s} down).}
+  \label{fig:partition_20}
+\end{subfigure}
 \caption{Cumulative distributions of end-to-end delay between \texttt{n5} and \texttt{n6} under different routing algorithms, while flapping link \texttt{n1-n2}.}
+\label{fig:partition}
 \end{figure}
 
 We see in both cases that LSR successfully delivers approximately half of the packets, consistent with the fact that the network is partitioned for half of the time. DTLSR achieves a much higher delivery proportion in both cases due to packets being buffered at the router before the failed link, then forwarded on once the link comes back up. We also see that higher frequency flapping creates a higher drop rate overall for both protocols, which can be explained by considering that when a link goes down it takes time for the router to detect this change, in which time any incoming packets are sent out of the interface and are summarily deleted. It is only once the state change is detected that we change our routing tables or start buffering packets, for LSR and DTLSR respectively. The higher the flapping frequency, the higher proportion of time we spend in these `boundary' periods, and thus the more packets we drop for both LSR and DTLSR.
@@ -326,13 +336,21 @@ Our second topology is a `box'-shaped one, where we have a low-delay main route 
 \end{minipage}
 
 \begin{figure}[H]
-\begin{tabular}{c}
-  \includegraphics[width=190mm]{delay_box_flap1} \\
-  (a) Flapping with period $T=\SI{2}{\s}$ (\SI{1}{\s} up, \SI{1}{\s} down). \\ [6pt]
-  \includegraphics[width=190mm]{delay_box_flap10} \\
-  (b) Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down). \\[6pt]
-\end{tabular}
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{delay_box_flap5}
+  \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
+  \label{fig:box_5}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{delay_box_flap10}
+  \caption{Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down).}
+  \label{fig:box_20}
+\end{subfigure}
 \caption{Cumulative distributions of end-to-end delay between \texttt{n5} and \texttt{n6} under different routing algorithms, while flapping link \texttt{n1-n4}.}
+\label{fig:box}
 \end{figure}
 
 
