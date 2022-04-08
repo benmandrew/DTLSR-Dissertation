@@ -68,11 +68,20 @@ The project contains 4605 lines of code, consisting of 3944 lines of C and 661 l
 
 \section{Table of Contents}
 
+\tableofcontents
+
 % JCW: Do we need an abstract?
 % Abstarct should be: 2 sentences why, 2 sentences what, 2 sentences results, 2 sentences impact
+
+\section{Abstract}
+
+
+
 \section{Introduction}
 
 % JCW: Weak intro.  Start with why, e.g. "Despite the best efforts of network engineers, achieving the reliability required to support traditional routing protocols is impractical in many situations"
+
+Despite the best efforts of network engineers, achieving reliable communications using traditional routing protocols is inefficient and impractical in many situations. In environments with low network-level reliability such as remote or developing regions, protocols like OSPF can have large packet drop rates, or even provide no end-to-end communication whatsoever. The retransmission costs required to fix this can place strain on already limited resources.
 
 This project aims to evaluate delay-tolerant modifications made to a link-state routing protocol for network environments with low reliability. It is motivated by similar conditions being seen in network infrastructure in remote developing regions, where issues such as unreliable power can cause a severe drop in packet delivery. We see how modifications made to the routing protocol can reduce this.
 
@@ -90,18 +99,18 @@ This project aims to evaluate delay-tolerant modifications made to a link-state 
 \subsection{Background}
 
 %JCW --should be more active -- s/one problem.../routing packets from one note to anohter on ... is challenging.
-One problem in a network is how to route packets from one node to another, on a path through the network hopping from node to node. A routing protocol describes how routers communicate with each other to distribute information about the topology of the network in order for each router to choose optimal routes to other nodes, and thus make optimal local forwarding decisions for incoming packets. One class of routing algorithms called link-state protocols aim for every router in the network to have a full view of the network topology, so when a change occurs in the network (e.g. a link fails), that information is propagated outwards from router to router, with the change being incorporated into each router's internal representation of the network.
+A challenging problem in networking is that of routing packets from one side of the network to another, on a path hopping from node to node. A routing protocol describes how routers communicate with each other to distribute information about the topology of the network, in order for each router to choose optimal paths to other nodes, and thus make optimal local forwarding decisions for incoming packets. Link-state protocols are one of the two main classes of routing protocols, and aim for every router in the network to have a full view of the network topology, so that when a change occurs in the network that information is propagated outwards from router to router, with the change being incorporated into each router's internal representation of the network.
 
 % JCW: Good structure.
 Traditional routing protocols such as OSPF treat failures as final, making the assumption that the failed link will not come back up anytime soon. If alternate routes exist they route around the failure to maintain connectivity as much as possible. However if no alternate routes exist (i.e. the network has been partitioned) then no data can be sent at all, and all packets sent after the failure will be dropped.
 
 % JCW: s/can drop/drops/ (You have the results that show this later!)
-However in environments such as developing regions with unreliable network infrastructure, partitions due to temporary link failures are a common occurrence. In this case the performance of traditional routing protocols can drop dramatically, in some cases preventing any end-to-end communication entirely. The routing protocols used in these situations must be designed to compensate for these failures in order to provide good service.
+However in environments such as developing regions with unreliable network infrastructure, partitions due to temporary link failures are a common occurrence. In this case the performance of traditional routing protocols drops dramatically, in some cases preventing any end-to-end communication entirely. The routing protocols used in these situations must be designed to compensate for these failures in order to provide good service.
 
 %JCW: is 'One appraoch' your implemented approach?  If so say -- it's not clear to me why I should care about this otherwise.
 % If it is your approach we should draw more attention to it --- subsection here
-% e.g. \subsection{Delay Tolerant Networking}
-One approach to make traditional routing more `delay-tolerant' is by allowing routing paths to be advertised through down links, and to use a `store-and-forward' mechanism for packet forwarding where if the link on the outgoing interface is down, any packets incoming to the router that would be forwarded out on that interface are buffered in-memory by the router. When the link comes back up, all of the buffered packets are sent out of the desired interface. This maintains end-to-end connectivity as much as possible and decreases the drop rate of packets dramatically.
+\subsection{Delay Tolerant Networking}
+We explore one approach to make traditional routing more `delay-tolerant'. We do this by allowing routing paths to be advertised through down links, and to use a `store-and-forward' mechanism for packet forwarding where if the link on the outgoing interface is down, any packets incoming to the router that would be forwarded out on that interface are buffered in-memory by the router. When the link comes back up, all of the buffered packets are sent out of the desired interface. This maintains end-to-end connectivity as much as possible and decreases the drop rate of packets dramatically.
 
 \begin{figure}[H]
 \centering
@@ -123,14 +132,14 @@ One approach to make traditional routing more `delay-tolerant' is by allowing ro
 
 % JCW: s/The primary goal of this project is to compare/This project compares
 % (this pattern comes up a lot --- try to make sentences more active)
-The primary goal of this project is to compare the performance of a protocol using traditional link-state routing with a modified version implementing delay-tolerant features. To have control over the behaviour of the protocols both are implemented from scratch in C, with the design based off of the OSPF protocol. The evaluation will focus mainly on the drop rate of packets, as well as the delay of packet arrivals. We do the evaluation by running the protocols on an industry-grade network emulator that provides a realistic testing environment with full control over the network properties.
+This project compares the performance of a protocol using traditional link-state routing with a modified version implementing delay-tolerant features. To have control over the behaviour of the protocols both are implemented from scratch in C, with the design based off of the OSPF protocol. The evaluation focuses mainly on the drop rate of packets along with the delay of packet arrivals. We do the evaluation by running the protocols on an industry-grade network emulator that provides a realistic testing environment with full control over the network properties.
 
 \subsection{Related Work}
 
 % JCW cites needed  -- try adding 'survey' to your search terms because those shoudl cover most of the existing work within them.
 % jcw: note --- is for em dash, not -
 % OTherwsie excellent paragraph explaining why is is related but not usefu.
-There has been much research into `mobile ad-hoc networks', where mobile nodes physically move around and have intermittent and unpredictable connectivity with other nodes. This requires a dramatic change in network protocol design, but for our situation it is not necessary. Link failures in a mobile network are usually due to topology changes, but networks in developing regions have largely static topologies with modem or satellite links, where link failures - mostly due to congestion or unreliable power - do not imply that the topology has changed. When the failure is resolved the topology will be the same as before, thus we are able to use a well-understood link-state paradigm with comparatively minor modifications, making deployment far easier and minimising wasted resources from unnecessary features.
+There has been much research into `mobile ad-hoc networks', where mobile nodes physically move around and have intermittent and unpredictable connectivity with other nodes. This requires a dramatic change in network protocol design, but for our situation it is not necessary. Link failures in a mobile network are usually due to topology changes, but networks in developing regions have largely static topologies with modem or satellite links where link failures, mostly due to congestion or unreliable power, do not imply that the topology has changed. When the failure is resolved the topology will be the same as before, thus we are able to use a well-understood link-state paradigm with comparatively minor modifications, making deployment far easier and minimising wasted resources from unnecessary features.
 
 
 
@@ -139,6 +148,8 @@ There has been much research into `mobile ad-hoc networks', where mobile nodes p
 \section{Implementation}
 % JCW : Can we start with something more exciting?  E.g. a brief overview of what you've implemented?
 % I think 2 paragraphs explaining what you've implemented would go very well here --- and help the reader navigate this section.
+
+We have implemented two routing protocols...
 
 \subsection{Repository Overview}
 
@@ -172,31 +183,30 @@ The project was implemented almost entirely in C, with CORE-specific scripts in 
 
 
 % JCW : drop Background?  I'm tired of backgrounds by the time I get to here!
-\subsection{CORE Background}
+\subsection{Common Open Research Emulator (CORE)}
 
-The Common Open Research Emulator (CORE) is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces. It comes out of the US Naval Research Laboratory and was developed by Boeing Research and Technology.
+CORE is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces. It comes out of the US Naval Research Laboratory and was developed by Boeing Research and Technology.
 
 % JCW: You should refer to these figures from the text --- otherwise the reader won't look at them. (same with your other figures)
 \begin{minipage}{1\textwidth} \centering
 	\includegraphics[width=0.6\textwidth]{core_topology}
 	\captionof{figure}{Example emulated network in the CORE GUI, showing routers and hosts.}
+	\label{fig:core_topology}
 \end{minipage}
 
 % good.
 % JCW: d/surprisingly/
-Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network surprisingly simple.
+Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network simple. For example in Figure \ref{fig:core_topology} we could run \texttt{ping 10.0.5.10} from the node \texttt{n7}, sending pings between \texttt{n7} and \texttt{n6}.
 
 % JCW: feels wordy
 % JCW: My 2c is that this whole thing should be written in the present tense -- rather than referring to the evaluation as the future?
-Link properties can be programmatically customised through the Python API, with properties including bandwidth, delay, loss, and jitter. This will aid greatly in evaluation, for example simulating a link failure by setting the loss rate of a node to 100\%, allowing us to create network partitions.
+Link properties such as delay and loss can be programmatically customised through the Python API. This aids greatly in evaluation, allowing us to simulate network partitions and other network events.
 
 % JCW: more exciting!  "However, because CORE .... clock, performance ... is dependent on ..."
 % JCW: Also note use of 'I' --- you should be using that all the way through to make this a bit less wordy. (or we if you feel like being academic in style)
 % also see note on future tense
-One limitation is that CORE operates in real-time using the OS's clock, and thus the performance of the simulated network is somewhat dependent on the performance of the machine it's being run on. I will therefore be taking great care to create a reliable and statistically sound testing environment, for example setting processor priority, not running other programs, and taking baseline measurements to compare against.
 
-% jcw not sure how well this flows from last para.
-The sharing of the clock has the advantage that when deriving the time between events on different virtual machines we don't need to account for any clock drift; the time difference will be as exact as if they were the same machine. This will make evaluation easier and more accurate, reducing the error.
+An interesting point is that because CORE operates in real-time using the OS's clock, the performance of the simulated network is dependent on the performance of the machine it's running on. I therefore take great care to create a reliable and statistically sound testing environment, for example setting processor priority, not running other programs, and taking baseline measurements to compare against. However the clock sharing is also an advantage for evaluation, as when deriving the time between events on different virtual machines we don't need to account for any clock drift; the time difference will be as exact as if they were the same machine. This will make evaluation easier and more accurate, reducing the error.
 
 \subsection{Link-State Routing Design}
 
@@ -207,9 +217,9 @@ The link-state routing protocol that I implemented is split into two programs, \
 % Perhaps with example LSR contents?
 \texttt{heartbeat} sends periodic heartbeat messages to all neighbouring nodes, notifying them that the connecting link is still up. The message is received by \texttt{lsr}. Hosts run \texttt{heartbeat} to notify their gateway router of their existence, so that the router can advertise the corresponding route.
 
-\texttt{lsr} implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends link-state announcements (LSAs) in response to detected changes in the network.
+\texttt{lsr} implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends link-state announcements (LSAs) in response to detected changes in the network. When we say a link is UP or DOWN we mean the router's link-state representation of the network, which is a `lagged' view of its real state.
 
-These changes are detected in one of three ways. When we state a link is UP or DOWN we mean the router's link-state representation of the network:
+Changes are detected in one of three ways:
 \begin{enumerate}
 	\item
 	A heartbeat message is received from a neighbour with a DOWN link. We set the link to be UP.
@@ -226,17 +236,15 @@ Both programs lend themselves to an event-driven design, and so I used file desc
 % ie->ei
 Heartbeats and LSAs are recieved on sockets with distinct ports, allowing them to be differentiated easily by the Unix socket API at the UDP layer. While these are purely link-level communications and as such do not require UDP or even IP information, the socket API is an easy abstraction to use and allows me to reuse code from other parts of the codebase, minimising the possibility of introducing bugs.
 
-A heartbeat message is a UDP packet with only header, no payload. An LSA is a UDP packet whose payload is the sending node's graph representation of the network, simply copied into the payload using \texttt{memcpy}. The graph representation uses statically sized arrays rather than dynamically sized `\texttt{malloc}ed' ones, to make allocation and indexing simpler.
-% JCW: hm.  Can you say this in a way that doesn't sound quite so much like you have an unfinished project and simultaneously trashes your evaluation?
-While it would be more space-efficient to pack the graph into a more compressed structure for sending over the link, the network topologies that I use in the evaluation are not large enough for this to be an issue. It would be a simple fix if this became an issue.
+A heartbeat message is a UDP packet with only header, no payload. An LSA is a UDP packet whose payload is the sending node's graph representation of the network, simply copied into the payload using \texttt{memcpy}.
 
 % 
-We send LSAs to our neighbours whenever we detect a change in the network (as specified above). This means we propagate link-state information as quickly as possible, minimising convergence time. We also send only when we detect changes with respect to our knowledge of the network so that we don't cause infinite looping of updates.
+We send LSAs to our neighbours whenever we detect a change in the network, propagating link-state information as quickly as possible to minimise convergence time. We also send only when we detect changes with respect to our knowledge of the network so that we don't cause infinite looping of updates.
 
 \subsubsection{Local and Global Link-State}
 
 % JCW -- add a sentence -- why both needed?
-We have two levels of representation for our network representation: a minimal global representation of the entire network and a detailed representation of the immediate neighbourhood of the local node.
+We have two levels of representation for our network representation: a minimal global representation of the entire network and a detailed representation of the immediate neighbourhood of the local node. We use the detailed local state to derive metrics for the global state graph that we can efficiently share with other routers.
 
 For each node in the global graph, we store for each link information like the source IP, neighbour destination IP, the status of the link, the derived metric associated with the link, and a timestamp specifying how old our knowledge of that link is, for merging purposes.
 
@@ -244,17 +252,16 @@ The local graph consists solely of our node along with more in-depth information
 
 \subsubsection{Route Generation}
 
-% JCW -- weak to say "as I am more concerned with ..." say instead "as delay is more important than throughput in DT networks" (e.g.).  Not sure where last sentence in this para links in.
-Routes are derived from the link-state graph, where we compute the shortest path from ourselves to every other node in the graph using Dijkstra's algorithm. The metric for a path is given as the number of hops in the path, which I chose over a more standard OSPF-style metric depending on bandwidth as I am more concerned with delay than throughput. Notably, if a link is though to be DOWN, we disallow the pathfinding to go through that link.
+We generate routes from the link-state graph, computing shortest paths from ourself to every other node using Dijkstra's algorithm. From each shortest path we get the next-hop node, which we add to the routing table along with the destination IP so that the router knows where to forward incoming packets. Along with adding new routes we also delete old stale routes, which have either been made obselete by a new, better route, or do not exist anymore due to failure.
 
-% JCW:  what is pathfinding!! It's just appeared out of nowhere I think
-After pathfinding we have for each destination address a `next-hop' address. We first generalise each specific destination address to its 24 bit subnet, zeroing out the last 8 bits. Many of these routes can then be merged together, for example if two destinations are part of a single subnet and have the same next-hop. This route aggregation reduces the size of the routing table.
+Dijkstra's algorithm computes paths on a weighted graph, allowing us to choose a metric to judge links against each other. Traditional OSPF uses a bandwidth-based metric, but I chose to use the number of hops in the path instead, as delay is more important than throughput in delay-tolerant networks.
 
-% JCW -- I've stopped following this section and I don't know why -- probably pathfinding would be a good start -- but this also feels like it doesn't link with the last para?
-We keep track of which routes we have previously added to the routing table, and mark off those that we have regenerated from the updated graph. If we have previously added routes that are not marked off, then we know that route no longer exists and we can remove it from the routing table. This may happen if a link goes down or a better alternative route appears.
+With many destinations we have a large number of routing table entries, but we can reduce this by aggregating routes together that share an outgoing interface and IP prefix. As the routing table operates by prefix matching, we only need to insert the shared prefix into the table, reducing the number of entries required greatly.
+
 
 % Same here --- there is a weird state change between these paragraphs that I can't quite put my finger on (first feels like it's describing fields, second an algorithm, and this one a property?)
-With invalid routes removed, we can then add all of our new routes to the routing table. Manipulation of the Unix routing table is done through the \texttt{ioctl}, a system call for interacting with OS devices through a file descriptor interface. We pass a flag corresponding to route addition or deletion, along with a `\texttt{route}' struct containing the route details.
+Manipulation of the Unix routing table is done through
+\texttt{ioctl}, a system call for interacting with OS devices through a file descriptor interface. We pass a flag corresponding to route addition or deletion, along with a `\texttt{route}' struct containing the route details.
 
 \subsection{Delay-Tolerant Modifications}
 
@@ -262,7 +269,7 @@ For the delay-tolerant version of the protocol suite, we replace the \texttt{lsr
 
 % I think pathfinding needs a whole subsection?
 % s/instead of hop count/an expornential time-... instead of hop count --- sentences are better if they flow in a straight line
-Firstly, in the pathfinding algorithm we allow paths to be generated through DOWN links so that when we update the routing table packets will be sent along the path up to the DOWN link, and buffered there until the link comes back up. The metric is modified to be, instead of hop count, an exponential time-average of the uptime history of all links along the path, so that nodes along unreliable paths will have a much higher cost. These uptime histories are maintained locally for neighbour links only; when we advertise our link state using LSAs we share only the derived metric. The metric for a path is still the summation of costs of each link along the path, which is a natural way to combine delay-dependent metrics.
+Firstly, in the pathfinding algorithm we allow paths to be generated through DOWN links so that when we update the routing table packets will be sent along the path up to the DOWN link, and buffered there until the link comes back up. Replacing \texttt{lsr}'s hop count metric, we use an exponential time-average of the uptime history of all links along the path, so that nodes along unreliable paths will have a much higher cost. These uptime histories are maintained locally for neighbour links only; when we advertise our link state using LSAs we share only the derived metric. The metric for a path is still the summation of costs of each link along the path, which is a natural way to combine delay-dependent metrics.
 
 % JCW: we've switched to we -- that's ok just be consistent
 % JCW: careful with this para --- being aware of bugs is good, but no need to advertise yourself as incomplete -- I think this one is good, becaause the bug is interesting --- but I think you should perhaps talk about the benefits of such a fix (e.g. decrease drop rate by X%)
