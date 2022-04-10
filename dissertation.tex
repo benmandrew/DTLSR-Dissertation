@@ -36,6 +36,7 @@
 \usepackage{amssymb}
 \usepackage{caption}
 \usepackage{subcaption}
+\usepackage{wrapfig}
 
 \usepackage[absolute,overlay]{textpos}
 
@@ -60,13 +61,22 @@
 \maketitle
 
 
-\section{Declaration of Originality}
+Declaration
+
+I, Ben Andrew of Magdalene College, being a candidate for Part II of the Computer Science
+Tripos, hereby declare that this dissertation and the work described in it are my own work,
+unaided except as may be specified below, and that the dissertation does not contain
+material that has already been used to any substantial extent for a comparable purpose.
+I am content for my dissertation to be made available to the students and staff of the
+University.
+
+Signed
+
+Date
 
 The project contains 4605 lines of code, consisting of 3944 lines of C and 661 lines of Python
 
-\section{Proforma}
-
-\section{Table of Contents}
+Proforma
 
 \tableofcontents
 
@@ -83,7 +93,7 @@ The project contains 4605 lines of code, consisting of 3944 lines of C and 661 l
 
 Despite the best efforts of network engineers, achieving reliable communications using traditional routing protocols is inefficient and impractical in many situations. In environments with low network-level reliability such as remote or developing regions, protocols like OSPF can have large packet drop rates, or even provide no end-to-end communication whatsoever. The retransmission costs required to fix this can place strain on already limited resources.
 
-This project aims to evaluate delay-tolerant modifications made to a link-state routing protocol for network environments with low reliability. It is motivated by similar conditions being seen in network infrastructure in remote developing regions, where issues such as unreliable power can cause a severe drop in packet delivery. We see how modifications made to the routing protocol can reduce this.
+This project aims to evaluate delay-tolerant modifications made to a link-state routing protocol for network environments with low reliability. It is motivated by similar conditions being seen in network infrastructure in remote developing regions, where issues such as unreliable power can cause severe and unpredictable drops in packet delivery. We see how modifications made to the routing protocol can reduce this.
 
 % JCW --- this needs to be much longer.  I want more motivation in here --- why should I care about this?
 
@@ -96,13 +106,15 @@ This project aims to evaluate delay-tolerant modifications made to a link-state 
 % 1 paragraph about what you implemented
 % 1 paragraph summarising the reuslts of your evaluation -- does that make sense?
 
-\subsection{Background}
+\subsection{Background and Motivation}
 
 %JCW --should be more active -- s/one problem.../routing packets from one note to anohter on ... is challenging.
-A challenging problem in networking is that of routing packets from one side of the network to another, on a path hopping from node to node. A routing protocol describes how routers communicate with each other to distribute information about the topology of the network, in order for each router to choose optimal paths to other nodes, and thus make optimal local forwarding decisions for incoming packets. Link-state protocols are one of the two main classes of routing protocols, and aim for every router in the network to have a full view of the network topology, so that when a change occurs in the network that information is propagated outwards from router to router, with the change being incorporated into each router's internal representation of the network.
+A challenging problem in networking is that of routing packets from one side of the network to another, on a path hopping from node to node. A routing protocol describes how routers communicate with each other to distribute information about the topology of the network, in order for each router to choose optimal paths to other nodes, and thus make optimal local forwarding decisions for incoming packets. Link-state protocols are one of the two main classes of routing protocols, and aim for every router in the network to have a full view of the network topology. When a change occurs in the network that information is propagated outwards from router to router, with the change being incorporated into each router's internal representation of the network.
 
 % JCW: Good structure.
 Traditional routing protocols such as OSPF treat failures as final, making the assumption that the failed link will not come back up anytime soon. If alternate routes exist they route around the failure to maintain connectivity as much as possible. However if no alternate routes exist (i.e. the network has been partitioned) then no data can be sent at all, and all packets sent after the failure will be dropped.
+
+
 
 % JCW: s/can drop/drops/ (You have the results that show this later!)
 However in environments such as developing regions with unreliable network infrastructure, partitions due to temporary link failures are a common occurrence. In this case the performance of traditional routing protocols drops dramatically, in some cases preventing any end-to-end communication entirely. The routing protocols used in these situations must be designed to compensate for these failures in order to provide good service.
@@ -111,6 +123,26 @@ However in environments such as developing regions with unreliable network infra
 % If it is your approach we should draw more attention to it --- subsection here
 \subsection{Delay Tolerant Networking}
 We explore one approach to make traditional routing more `delay-tolerant'. We do this by allowing routing paths to be advertised through down links, and to use a `store-and-forward' mechanism for packet forwarding where if the link on the outgoing interface is down, any packets incoming to the router that would be forwarded out on that interface are buffered in-memory by the router. When the link comes back up, all of the buffered packets are sent out of the desired interface. This maintains end-to-end connectivity as much as possible and decreases the drop rate of packets dramatically.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.6\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{storeandforward_down}
+  \caption{The link is down so the intermediate router buffers packets instead of dropping them.}
+  \label{fig:saf_down}
+\end{subfigure}
+\begin{subfigure}{.6\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{storeandforward_up}
+  \caption{Once the link comes back up the buffered packets are sent.}
+  \label{fig:saf_up}
+\end{subfigure}
+\caption{Using the store-and-forward technique reduces packet drops, reducing the retransmission load on the source.}
+\label{fig:saf}
+\end{figure}
+
+When we consider multiple link failures occurring along a path at once, the total time where an end-to-end connection exists can drop greatly. When every router along the path has store-and-forward capabilities, our network becomes far more resistant to failures, giving the best possible service to users given the environment.
 
 \begin{figure}[H]
 \centering
@@ -133,6 +165,10 @@ We explore one approach to make traditional routing more `delay-tolerant'. We do
 % JCW: s/The primary goal of this project is to compare/This project compares
 % (this pattern comes up a lot --- try to make sentences more active)
 This project compares the performance of a protocol using traditional link-state routing with a modified version implementing delay-tolerant features. To have control over the behaviour of the protocols both are implemented from scratch in C, with the design based off of the OSPF protocol. The evaluation focuses mainly on the drop rate of packets along with the delay of packet arrivals. We do the evaluation by running the protocols on an industry-grade network emulator that provides a realistic testing environment with full control over the network properties.
+
+\subsubsection{Results}
+
+DTLSR greatly decreases the drop rate of packets over networks with frequent partitions. Even when a higher-delay backup link exists which LSR can switch onto, our evaluation shows that DTLSR still reduces the packet drop rate by at least half. We also experimentally show cases with multiple link failures where LSR achieves zero packet delivery, but DTLSR delivers more than 70\% of packets.
 
 \subsection{Related Work}
 
@@ -217,7 +253,7 @@ The link-state routing protocol that I implemented is split into two programs, \
 % Perhaps with example LSR contents?
 \texttt{heartbeat} sends periodic heartbeat messages to all neighbouring nodes, notifying them that the connecting link is still up. The message is received by \texttt{lsr}. Hosts run \texttt{heartbeat} to notify their gateway router of their existence, so that the router can advertise the corresponding route.
 
-\texttt{lsr} implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends link-state announcements (LSAs) in response to detected changes in the network. When we say a link is UP or DOWN we mean the router's link-state representation of the network, which is a `lagged' view of its real state.
+\texttt{lsr} implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends link-state announcements (LSAs) in response to detected changes in the network. When we say a link is UP or DOWN we mean the router's logical link-state representation of the network, which is a `lagged' view of its real state.
 
 Changes are detected in one of three ways:
 \begin{enumerate}
@@ -412,15 +448,35 @@ Our second topology is a `box'-shaped one, where we have a low-delay main route 
 	\captionof{figure}{`Box' network topology.}
 \end{minipage}
 
-\begin{figure}[H]
-\centering
-\begin{subfigure}{.5\textwidth}
+%\begin{figure}[H]
+%\centering
+%\begin{subfigure}{.5\textwidth}
+%  \centering
+%  \includegraphics[width=1\linewidth]{delay_box_flap5}
+%  \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
+%  \label{fig:box_5}
+%\end{subfigure}%
+%\begin{subfigure}{.5\textwidth}
+%  \centering
+%  \includegraphics[width=1\linewidth]{delay_box_flap10}
+%  \caption{Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down).}
+%  \label{fig:box_20}
+%\end{subfigure}
+%\caption{Cumulative distributions of end-to-end delay between \texttt{n1} and \texttt{n2} under different routing algorithms, while flapping link \texttt{n3-n4}.}
+%\label{fig:box}
+%\end{figure}
+
+\pagebreak
+
+%------------------------------------------
+\begin{wrapfigure}{r}{15cm}
+\begin{subfigure}{15cm}
   \centering
   \includegraphics[width=1\linewidth]{delay_box_flap5}
   \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
   \label{fig:box_5}
-\end{subfigure}%
-\begin{subfigure}{.5\textwidth}
+\end{subfigure}
+\begin{subfigure}{15cm}
   \centering
   \includegraphics[width=1\linewidth]{delay_box_flap10}
   \caption{Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down).}
@@ -428,7 +484,8 @@ Our second topology is a `box'-shaped one, where we have a low-delay main route 
 \end{subfigure}
 \caption{Cumulative distributions of end-to-end delay between \texttt{n1} and \texttt{n2} under different routing algorithms, while flapping link \texttt{n3-n4}.}
 \label{fig:box}
-\end{figure}
+\end{wrapfigure}
+%------------------------------------------
 
 We see in both cases that LSR successfully switches to the backup link whenever the main link goes down, shown by a large proportion of packets having an RTT of approximately \SI{10}{\ms}. As described above, it takes time for the protocol to detect that the link is down and to respond by modifying the routing table, which causes packet losses. Increasing the flapping frequency increases the number of these boundary periods, thus increasing the proportion of time dropping packets. This is reflected in the higher proportion of packets being dropped with a shorter flapping period for LSR.
 
@@ -453,7 +510,7 @@ Our third topology is similar to the above `partition' topology, but instead par
   \includegraphics[width=1\linewidth]{delay_full_partition_graph}
   \label{fig:full_partition_graph}
 \end{subfigure}
-\caption{`Full partition' network topology with anti-correlated failures.}
+\caption{`Full partition' network topology with anti-correlated link failures.}
 \label{fig:full_partition}
 \end{figure}
 
