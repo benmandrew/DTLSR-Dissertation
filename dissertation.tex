@@ -115,17 +115,19 @@ However in environments such as developing regions with unreliable network infra
 %JCW: is 'One appraoch' your implemented approach?  If so say -- it's not clear to me why I should care about this otherwise.
 % If it is your approach we should draw more attention to it --- subsection here
 \subsection{Delay Tolerant Networking}
-We explore one approach to make traditional routing more `delay-tolerant'. We do this by allowing routing paths to be advertised through down links, and to use a `store-and-forward' mechanism for packet forwarding where if the link on the outgoing interface is down, any packets incoming to the router that would be forwarded out on that interface are buffered in-memory by the router. When the link comes back up, all of the buffered packets are sent out of the desired interface. This maintains end-to-end connectivity as much as possible and decreases the drop rate of packets dramatically.
+We explore one approach to make traditional routing more `delay-tolerant'. We do this by allowing routing paths to be advertised through down links, and to use a `store-and-forward' mechanism for packet forwarding where if the link on the outgoing interface is down, any packets incoming to the router that would be forwarded out on that interface are buffered in-memory by the router, seen in Figure \ref{fig:saf_down}. When the link comes back up, all of the buffered packets are sent out of the desired interface, seen in Figure \ref{fig:saf_up}. This maintains end-to-end connectivity as much as possible and decreases the drop rate of packets dramatically, which we can see particularly in Figure \ref{fig:pathalogical}.
 
+\begin{center}
+\begin{minipage}{0.9\textwidth} \centering
 \begin{figure}[H]
 \centering
-\begin{subfigure}{.6\textwidth}
+\begin{subfigure}{.65\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{storeandforward_down}
   \caption{The link is down so the intermediate router buffers packets instead of dropping them.}
   \label{fig:saf_down}
 \end{subfigure}
-\begin{subfigure}{.6\textwidth}
+\begin{subfigure}{.65\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{storeandforward_up}
   \caption{Once the link comes back up the buffered packets are sent.}
@@ -134,9 +136,13 @@ We explore one approach to make traditional routing more `delay-tolerant'. We do
 \caption{Using the store-and-forward technique reduces packet drops, reducing the retransmission load on the source.}
 \label{fig:saf}
 \end{figure}
+\end{minipage}
+\end{center}
 
 When we consider multiple link failures occurring along a path at once, the total time where an end-to-end connection exists can drop greatly. When every router along the path has store-and-forward capabilities, our network becomes far more resistant to failures, giving the best possible service to users given the environment.
 
+\begin{center}
+\begin{minipage}{0.9\textwidth} \centering
 \begin{figure}[H]
 \centering
 \begin{subfigure}{.45\textwidth}
@@ -152,11 +158,11 @@ When we consider multiple link failures occurring along a path at once, the tota
 \caption{Pathalogical case where a store-and-forward technique allows packets to be delivered despite no end-to-end connection. Traditional techniques will drop all packets.}
 \label{fig:pathalogical}
 \end{figure}
+\end{minipage}
+\end{center}
 
 \subsection{Objectives of the Project}
 
-% JCW: s/The primary goal of this project is to compare/This project compares
-% (this pattern comes up a lot --- try to make sentences more active)
 This project compares the performance of a protocol using traditional link-state routing with a modified version implementing delay-tolerant features. To have control over the behaviour of the protocols both are implemented from scratch in C, with the design based off of the OSPF protocol. The evaluation focuses mainly on the drop rate of packets along with the delay of packet arrivals. We do the evaluation by running the protocols on an industry-grade network emulator that provides a realistic testing environment with full control over the network properties.
 
 \subsubsection{Results}
@@ -178,7 +184,7 @@ There has been much research into `mobile ad-hoc networks', where mobile nodes p
 % JCW : Can we start with something more exciting?  E.g. a brief overview of what you've implemented?
 % I think 2 paragraphs explaining what you've implemented would go very well here --- and help the reader navigate this section.
 
-We have implemented two routing protocols...
+We have implemented two routing protocols, \texttt{LSR} and \texttt{DTLSR}...
 
 \subsection{Repository Overview}
 
@@ -205,18 +211,14 @@ dtlsr                        Root
 
 \texttt{network} contains functionality for socket manipulation, sending data over the network, and packet listening/replay.
 
-% JCW retreiving (spelling)
-\texttt{process} contains funtionality for interacting with both CORE and the Unix OS, for example retreiving node information, logging, and manipulating the Unix routing table.
+\texttt{process} contains funtionality for interacting with both CORE and the Unix OS, for example retrieving node information, logging, and manipulating the Unix routing table.
 
 The project was implemented almost entirely in C, with CORE-specific scripts in Python. I used the CMake build system and Check unit testing framework.
 
-
-% JCW : drop Background?  I'm tired of backgrounds by the time I get to here!
 \subsection{Common Open Research Emulator (CORE)}
 
 CORE is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces. It comes out of the US Naval Research Laboratory and was developed by Boeing Research and Technology. In Figure \ref{fig:core_topology} we see an example topology in the CORE GUI.
 
-% JCW: You should refer to these figures from the text --- otherwise the reader won't look at them. (same with your other figures)
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
 	\includegraphics[width=0.65\textwidth]{core_topology}
@@ -227,19 +229,12 @@ CORE is a network emulator that models nodes as lightweight Unix virtual machine
 
 Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network simple: in Figure \ref{fig:core_topology} we could run \texttt{ping 10.0.5.10} from the node \texttt{n7}, sending pings between \texttt{n7} and \texttt{n6}.
 
-% JCW: feels wordy
-% JCW: My 2c is that this whole thing should be written in the present tense -- rather than referring to the evaluation as the future?
 Link properties such as delay and loss can be programmatically customised through the Python API. This aids greatly in evaluation, allowing us to simulate network partitions and other network events. In Figure \ref{fig:core_topology} if we disabled link \texttt{n1-n2} the pings going between \texttt{n7} and \texttt{n6} would have to be rerouted through \texttt{n5} and \texttt{n4}.
 
-% JCW: more exciting!  "However, because CORE .... clock, performance ... is dependent on ..."
-% JCW: Also note use of 'I' --- you should be using that all the way through to make this a bit less wordy. (or we if you feel like being academic in style)
-% also see note on future tense
-
-An interesting point is that because CORE operates in real-time using the OS's clock, the performance of the simulated network is dependent on the performance of the machine it's running on. I therefore take great care to create a reliable and statistically sound testing environment, for example setting processor priority, not running other programs, and taking baseline measurements to compare against. However the clock sharing is also an advantage for evaluation, as when deriving the time between events on different virtual machines we don't need to account for any clock drift; the time difference will be as exact as if they were the same machine. This will make evaluation easier and more accurate, reducing the error.
+An interesting point is that because CORE operates in real-time using the OSes clock, the performance of the simulated network is dependent on the performance of the machine it's running on. We therefore take great care to create a reliable and statistically sound testing environment, for example setting processor priority, not running other programs, and taking baseline measurements to compare against. However the clock sharing is also an advantage for evaluation, as when deriving the time between events on different virtual machines we don't need to account for any clock drift; the time difference will be as exact as if they were the same machine. This will make evaluation easier and more accurate, reducing the error.
 
 \subsection{Link-State Routing Design}
 
-% good.
 The link-state routing protocol that I implemented is split into two programs, \texttt{heartbeat} and \texttt{lsr}.  Routers run both programs, and hosts run only \texttt{heartbeat}.
 
 % JCW: can we havea  diagram showing the heartbeat and LSR?
@@ -355,13 +350,16 @@ An interesting edge case is when a link goes down connecting a host with its gat
 
 When a link is DOWN, in our delay-tolerant context we may still advertise routes going through it as if it was open, and so we may have traffic routed through us expecting to move through the link. Thus we must buffer this traffic locally until either the link comes back up or a better alternative route appears, at which point we send it on.
 
-%good
-We use the \texttt{tcpdump} tool for interface listening. When a router knows a connected link is down, it starts listening on all interfaces and dumping received packets to a \texttt{pcap} file, according to a packet filter that only dumps packets going to an IP address that we route to via the down interface. \texttt{tcpdump} is interacted with via the \texttt{libpcap} C library linked in statically with the executable, with the packet filter programmed using the Berkeley Packet Filter (BPF) language. An important optimisation is to place this \texttt{pcap} file on a RAM disk to maximise throughput and minimise latency that can occur when storing files on an SSD or even a HDD.
+We use the \texttt{tcpdump} tool for interface listening. When a router knows a connected link is down, it starts listening on all interfaces and dumping received packets to a \texttt{pcap} file, according to a packet filter that only dumps packets going to an IP address that we route to via the down interface. \texttt{tcpdump} is interacted with via the \texttt{libpcap} C library linked in statically with the executable, with the packet filter programmed using the Berkeley Packet Filter (BPF) language. An important optimisation is to place this \texttt{pcap} file on a RAM disk to maximise throughput and minimise latency that can occur when storing files on an SSD or HDD.
 
 When the link comes back up, we stop listening for packets and dumping them to the file, and close the file. From now incoming packets are being routed out of the interface correctly so we don't want to duplicate data by buffering then resending it. We make use of a command-line tool, \texttt{tcpreplay}, which allows packets from \texttt{pcap} files to be replayed out of  an interface. We do this, and then delete the file. Described here is the case of a single failing link, but when multiple links are concurrently failing and coming back up we of course need to be more careful about listening for and replaying only the right data.
 
 % JCW yeah it's a full research project -- a citation would be good ifyou have one.
 I chose to use existing tools for packet buffering due to the complexity of this problem, as well as issues with reliability. Even a mature and tested tool like \texttt{tcpdump} still cannot catch all incoming packets at higher speeds, I would have no hope of implementing a suitable alternative in the time I had; it would likely be a part II project in its own right.
+
+\subsubsection{Delay-Tolerant Metric}
+
+We need some metric to be able to judge the expected delay of a link, in order to compare it to a stable backup link that we can switch onto when appropriate, to minimise the overall delay. We use a metric based on the uptime history of the link, computing an integral over a window of the history after exponentially weighting it, as we can see in Figure \ref{fig:metric}. Integrating over the uptime history tells us how often the link is up, giving us some idea of its reliability over time. Computing over a window allows us to delete old measurements, saving memory, and the exponential weighting gives more importance to recent events, making it more responsive to changes. The parameters to the exponential weighting allow us to tune its responsiveness.
 
 \subsection{Implementation Practicalities}
 
