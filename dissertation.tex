@@ -80,13 +80,6 @@ Proforma
 
 \tableofcontents
 
-% JCW: Do we need an abstract?
-% Abstarct should be: 2 sentences why, 2 sentences what, 2 sentences results, 2 sentences impact
-
-\section{Abstract}
-
-
-
 \section{Introduction}
 
 % JCW: Weak intro.  Start with why, e.g. "Despite the best efforts of network engineers, achieving the reliability required to support traditional routing protocols is impractical in many situations"
@@ -221,22 +214,22 @@ The project was implemented almost entirely in C, with CORE-specific scripts in 
 % JCW : drop Background?  I'm tired of backgrounds by the time I get to here!
 \subsection{Common Open Research Emulator (CORE)}
 
-CORE is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces. It comes out of the US Naval Research Laboratory and was developed by Boeing Research and Technology.
+CORE is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces. It comes out of the US Naval Research Laboratory and was developed by Boeing Research and Technology. In Figure \ref{fig:core_topology} we see an example topology in the CORE GUI.
 
 % JCW: You should refer to these figures from the text --- otherwise the reader won't look at them. (same with your other figures)
-\begin{minipage}{1\textwidth} \centering
-	\includegraphics[width=0.6\textwidth]{core_topology}
-	\captionof{figure}{Example emulated network in the CORE GUI, showing routers and hosts.}
+\begin{center}
+\begin{minipage}{0.9\textwidth} \centering
+	\includegraphics[width=0.65\textwidth]{core_topology}
+	\captionof{figure}{Example emulated network in the CORE GUI, showing routers and hosts along with their IP addresses.}
 	\label{fig:core_topology}
 \end{minipage}
+\end{center}
 
-% good.
-% JCW: d/surprisingly/
-Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network simple. For example in Figure \ref{fig:core_topology} we could run \texttt{ping 10.0.5.10} from the node \texttt{n7}, sending pings between \texttt{n7} and \texttt{n6}.
+Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network simple: in Figure \ref{fig:core_topology} we could run \texttt{ping 10.0.5.10} from the node \texttt{n7}, sending pings between \texttt{n7} and \texttt{n6}.
 
 % JCW: feels wordy
 % JCW: My 2c is that this whole thing should be written in the present tense -- rather than referring to the evaluation as the future?
-Link properties such as delay and loss can be programmatically customised through the Python API. This aids greatly in evaluation, allowing us to simulate network partitions and other network events.
+Link properties such as delay and loss can be programmatically customised through the Python API. This aids greatly in evaluation, allowing us to simulate network partitions and other network events. In Figure \ref{fig:core_topology} if we disabled link \texttt{n1-n2} the pings going between \texttt{n7} and \texttt{n6} would have to be rerouted through \texttt{n5} and \texttt{n4}.
 
 % JCW: more exciting!  "However, because CORE .... clock, performance ... is dependent on ..."
 % JCW: Also note use of 'I' --- you should be using that all the way through to make this a bit less wordy. (or we if you feel like being academic in style)
@@ -269,22 +262,69 @@ Changes are detected in one of three ways:
 
 Both programs lend themselves to an event-driven design, and so I used file descriptors multiplexed with the \texttt{select} Unix system call to detect and respond to events. The \texttt{select} call blocks the process from running until one of the specified file descriptors is ready to be used, at which point the OS gives the process back control along with information about which file descriptor is ready. Using this we can implement a coarse event system. As examples, receiving socket file descriptors trigger as `ready' when data has arrived and is ready to be read, and timer file descriptors trigger as `ready' when the timer has expired. One can see how these can be composed to create a responsive distributed protocol that uses system resources efficiently, rather than just spinning waiting for something to happen.
 
-% ie->ei
-Heartbeats and LSAs are recieved on sockets with distinct ports, allowing them to be differentiated easily by the Unix socket API at the UDP layer. While these are purely link-level communications and as such do not require UDP or even IP information, the socket API is an easy abstraction to use and allows me to reuse code from other parts of the codebase, minimising the possibility of introducing bugs.
+Heartbeats and LSAs are received on sockets with distinct ports, allowing them to be differentiated easily by the Unix socket API at the UDP layer. While these are purely link-level communications and as such do not require UDP or even IP information, the socket API is an easy abstraction to use and allows me to reuse code from other parts of the codebase, minimising the possibility of introducing bugs.
 
 A heartbeat message is a UDP packet with only header, no payload. An LSA is a UDP packet whose payload is the sending node's graph representation of the network, simply copied into the payload using \texttt{memcpy}.
 
-% 
 We send LSAs to our neighbours whenever we detect a change in the network, propagating link-state information as quickly as possible to minimise convergence time. We also send only when we detect changes with respect to our knowledge of the network so that we don't cause infinite looping of updates.
+
+\subsubsection{Graph Merging}
+
+On receiving an LSA from a neighbour, we must carefully merge the neighbour's representation of the network into our own, only taking the most recent information. We see in Figure \ref{fig:lsa} an example of a merge.
+
+\begin{center}
+\begin{minipage}{0.9\textwidth} \centering
+	\includegraphics[width=1\textwidth]{lsa}
+	\captionof{figure}{Node A receives an LSA from node B, and merges it in to get the most up-to-date view of the network.}
+	\label{fig:lsa}
+\end{minipage}
+\end{center}
+
+To make merging simple we treat every node as independent, in particular having the node's list of neighbours included in the node's data structure rather than having a separate list of links indexed by 2-tuples of node IDs. While this doubles the memory cost of a link as we represent it with two directed edges rather than a single undirected one, it means that merging becomes a simple independent pairwise comparison between nodes of the same ID to pick the one with the most recent timestamp, which has an $O(n)$ time complexity.
+
+When we have successfully merged our neighbour's view of the network into our own, any LSAs that we send will contain this information, thus propagating the global link-state information across the network.
 
 \subsubsection{Local and Global Link-State}
 
-% JCW -- add a sentence -- why both needed?
 We have two levels of representation for our network representation: a minimal global representation of the entire network and a detailed representation of the immediate neighbourhood of the local node. We use the detailed local state to derive metrics for the global state graph that we can efficiently share with other routers.
 
 For each node in the global graph, we store for each link information like the source IP, neighbour destination IP, the status of the link, the derived metric associated with the link, and a timestamp specifying how old our knowledge of that link is, for merging purposes.
 
 The local graph consists solely of our node along with more in-depth information about links connecting us to our immediate neighbours. Along with all of the information contained in a global node, we also have for each link a timer for timing out heartbeats and the interface which that link goes out on. We take the locally-derived information and feed it into the global graph, which then gets shared with the rest of the network via LSAs.
+
+The data structures for each are given below. The global graph is an array of \texttt{Node}s, and the local graph is a single instance of \texttt{LocalNode}.
+
+% BMA -- C is hard to read, maybe some better way to include this?
+\begin{center}
+\begin{minipage}{0.5\textwidth} \centering
+\begin{verbatim}
+typedef struct node {
+  int id;
+  enum NodeState state;
+  int n_neighbours;
+  uint32_t source_ips[MAX_NODE_FAN];
+  uint32_t neighbour_ips[MAX_NODE_FAN];
+  int neighbour_ids[MAX_NODE_FAN];
+  // Link is UP or DOWN
+  enum LinkState link_statuses[MAX_NODE_FAN];
+  double link_metrics[MAX_NODE_FAN];
+  // Node last update time
+  unsigned long long timestamp;
+} Node;
+\end{verbatim}
+\end{minipage}%
+\begin{minipage}{0.5\textwidth} \centering
+\begin{verbatim}
+typedef struct local_node {
+  Node node;
+  // Heartbeat timer array
+  Timer timers[MAX_NODE_FAN];
+  // Outgoing interfaces
+  char *interfaces[MAX_NODE_FAN];
+} LocalNode;
+\end{verbatim}
+\end{minipage}
+\end{center}
 
 \subsubsection{Route Generation}
 
@@ -469,14 +509,14 @@ Our second topology is a `box'-shaped one, where we have a low-delay main route 
 \pagebreak
 
 %------------------------------------------
-\begin{wrapfigure}{r}{15cm}
-\begin{subfigure}{15cm}
+\begin{wrapfigure}{r}{9.7cm}
+\begin{subfigure}{9.7cm}
   \centering
   \includegraphics[width=1\linewidth]{delay_box_flap5}
   \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
   \label{fig:box_5}
 \end{subfigure}
-\begin{subfigure}{15cm}
+\begin{subfigure}{9.7cm}
   \centering
   \includegraphics[width=1\linewidth]{delay_box_flap10}
   \caption{Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down).}
