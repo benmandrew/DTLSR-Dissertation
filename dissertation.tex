@@ -241,7 +241,7 @@ The link-state routing protocol that I implemented is split into two programs, \
 % Perhaps with example LSR contents?
 \texttt{heartbeat} sends periodic heartbeat messages to all neighbouring nodes, notifying them that the connecting link is still up. The message is received by \texttt{lsr}. Hosts run \texttt{heartbeat} to notify their gateway router of their existence, so that the router can advertise the corresponding route.
 
-\texttt{lsr} implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends link-state announcements (LSAs) in response to detected changes in the network. When we say a link is UP or DOWN we mean the router's logical link-state representation of the network, which is a `lagged' view of its real state.
+\texttt{lsr} implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends link-state announcements (LSAs) to neighbours in response to detected changes in the network. When we say a link is UP or DOWN we mean the router's logical link-state representation of the network, which is a `lagged' view of its real state. The event loop of \texttt{lsr} is shown in Figure \ref{fig:flowchart_lsr}.
 
 Changes are detected in one of three ways:
 \begin{enumerate}
@@ -254,6 +254,14 @@ Changes are detected in one of three ways:
 	\item
 	An LSA is received from a neighbour. If they have any information more recent that ours that causes a change to our network representation when merged in, a change is detected.
 \end{enumerate}
+
+\begin{center}
+\begin{minipage}{0.9\textwidth} \centering
+	\includegraphics[width=0.9\textwidth]{flowchart_lsr}
+	\captionof{figure}{Event loop of \texttt{lsr}, showing responses to different events.}
+	\label{fig:flowchart_lsr}
+\end{minipage}
+\end{center}
 
 Both programs lend themselves to an event-driven design, and so I used file descriptors multiplexed with the \texttt{select} Unix system call to detect and respond to events. The \texttt{select} call blocks the process from running until one of the specified file descriptors is ready to be used, at which point the OS gives the process back control along with information about which file descriptor is ready. Using this we can implement a coarse event system. As examples, receiving socket file descriptors trigger as `ready' when data has arrived and is ready to be read, and timer file descriptors trigger as `ready' when the timer has expired. One can see how these can be composed to create a responsive distributed protocol that uses system resources efficiently, rather than just spinning waiting for something to happen.
 
@@ -336,11 +344,19 @@ Manipulation of the Unix routing table is done through
 
 \subsection{Delay-Tolerant Modifications}
 
-For the delay-tolerant version of the protocol suite, we replace the \texttt{lsr} executable with \texttt{dtlsr}, keeping \texttt{heartbeat} the same. \texttt{dtlsr} uses mostly the same source files as \texttt{lsr}, with the delay-tolerant modifications enabled by \texttt{\#ifdef DTLSR} preprocessor switches. \texttt{dtlsr} maintains many of the same implementation design decisions as above with a few additions.
+For the delay-tolerant version of the protocol suite, we replace the \texttt{lsr} executable with \texttt{dtlsr}, keeping \texttt{heartbeat} the same. \texttt{dtlsr} uses mostly the same source files as \texttt{lsr}, with the delay-tolerant modifications enabled by \texttt{\#ifdef DTLSR} preprocessor switches. \texttt{dtlsr} maintains many of the same implementation design decisions as above with a few additions. We see the modified event loop of \texttt{dtlsr} in Figure \ref{fig:flowchart_dtlsr}.
 
 % I think pathfinding needs a whole subsection?
 % s/instead of hop count/an expornential time-... instead of hop count --- sentences are better if they flow in a straight line
 Firstly, in the pathfinding algorithm we allow paths to be generated through DOWN links so that when we update the routing table packets will be sent along the path up to the DOWN link, and buffered there until the link comes back up. Replacing \texttt{lsr}'s hop count metric, we use an exponential time-average of the uptime history of all links along the path, so that nodes along unreliable paths will have a much higher cost. These uptime histories are maintained locally for neighbour links only; when we advertise our link state using LSAs we share only the derived metric. The metric for a path is still the summation of costs of each link along the path, which is a natural way to combine delay-dependent metrics.
+
+\begin{center}
+\begin{minipage}{0.9\textwidth} \centering
+	\includegraphics[width=1\textwidth]{flowchart_dtlsr}
+	\captionof{figure}{New stages are shown in blue, existing stages that have been modified are shown in yellow.}
+	\label{fig:flowchart_dtlsr}
+\end{minipage}
+\end{center}
 
 % JCW: we've switched to we -- that's ok just be consistent
 % JCW: careful with this para --- being aware of bugs is good, but no need to advertise yourself as incomplete -- I think this one is good, becaause the bug is interesting --- but I think you should perhaps talk about the benefits of such a fix (e.g. decrease drop rate by X%)
@@ -359,7 +375,33 @@ I chose to use existing tools for packet buffering due to the complexity of this
 
 \subsubsection{Delay-Tolerant Metric}
 
-We need some metric to be able to judge the expected delay of a link, in order to compare it to a stable backup link that we can switch onto when appropriate, to minimise the overall delay. We use a metric based on the uptime history of the link, computing an integral over a window of the history after exponentially weighting it, as we can see in Figure \ref{fig:metric}. Integrating over the uptime history tells us how often the link is up, giving us some idea of its reliability over time. Computing over a window allows us to delete old measurements, saving memory, and the exponential weighting gives more importance to recent events, making it more responsive to changes. The parameters to the exponential weighting allow us to tune its responsiveness.
+We need some metric to be able to judge the expected delay of a link, in order to compare it to a stable backup link that we can switch onto when appropriate, to minimise the overall delay. This alternative metric is needed only when the link is DOWN, as this is the case when we would want to switch. When the link is up we want to send out our buffered packets as quickly as possible, so a metric with some level of hysteresis as we describe below is inappropriate. Through testing it is far more effective to fall back to the standard hop-count metric once the link comes back up.
+
+Assuming that the link will come back up, not switching to the backup link will have no effect on delivery rate as the packets will be buffered, and will reach their destination eventually. However we want to do this in order to reduce the average delay that packets experience, where waiting for the link to come back up will take longer than simply sending via the backup route. We want some level of hysteresis for this so that if failures are historically rare and short-lived, we stick to the primary link.
+
+We use a metric based on the uptime history of the link, computing an integral over the history after exponentially weighting it, as we can see in Figure \ref{fig:metric}. Integrating over the uptime history tells us how often the link is up, giving us some idea of its reliability over time, and the exponential weighting gives more importance to recent events, making it more responsive to changes. The parameters to the exponential weighting allow us to tune its responsiveness.
+
+
+
+Equation \ref{eq:metric_integral} shows how we compute the integral over one UP period, between times $t_0$ and $t_1$. Our falloff parameter $\alpha$ tunes the metric's responsiveness to changing conditions, increasing it increases the falloff. We compute this integral over each of the UP periods, summing the results together in Equation \ref{eq:metric_sum}.
+
+\begin{equation} \label{eq:metric_integral}
+F(t_0, t_1) = \int_{t_0}^{t_1} f(t) = e^{\alpha t_1} - e^{\alpha t0}
+\end{equation}
+
+\begin{equation} \label{eq:metric_sum}
+F = \sum_{i = 0}^{|\textbf{History}|/2} F(t_{2i}, t_{2i+1})
+\end{equation}
+
+\begin{center}
+\begin{minipage}{0.9\textwidth} \centering
+	\includegraphics[width=0.9\textwidth]{metric}
+	\captionof{figure}{Computing an exponentially weighted integral over the uptime history of the link.}
+	\label{fig:metric}
+\end{minipage}
+\end{center}
+
+We store the uptime history as a circular array of timestamps, each representing the time of an UP or DOWN event. As we know the current state of the link, we can work our way backwards through the array to compute which type of event any given timestamp represents, rather than explicitly storing it. Once the array fills up we start overwriting old events to save memory, however discarding these values has negligible effect on the metric due to the exponential weighting.
 
 \subsection{Implementation Practicalities}
 
