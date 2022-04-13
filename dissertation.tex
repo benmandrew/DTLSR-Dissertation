@@ -180,6 +180,52 @@ There has been much research into `mobile ad-hoc networks', where mobile nodes p
 
 \section{Preparation}
 
+\subsection{Software Engineering Tools and Techniques}
+
+
+\subsubsection{Programming Languages}
+
+I used \textbf{C} because of extensive previous experience in internships and the Part 1B course, and in order to have low-level access to Unix system calls. As well as this industry-grade routing protocols are generally written in C or assembly, and I wanted to emulate this as much as possible.
+
+I used \textbf{Python} to interact with the CORE API, for scripting the testing environment used to evaluate and develop the routing protocols. The Python API is the only one provided, thus it was a natural choice. I also used Python extensively to do analyse and plot the collected data.
+
+
+\subsubsection{Libraries}
+
+I used \textbf{libpcap} and its command-line equivalent \textbf{tcpdump} for buffering received packets and storing them on the router when the outgoing link was down. I used \textbf{tcpreplay} to send the packets buffered by the tools above out onto the outgoing link when it came back up.
+
+\paragraph{Check:} Check is an easy-to-use framework for running unit tests on a system written in C.
+
+\paragraph{CMake:} CMake is a build system for C 
+
+
+\subsubsection{Version Control and Backup}
+
+\paragraph{Git}
+
+
+\subsubsection{Repository Management}
+
+I used the \textbf{CMake} build system for C, which allows easy inclusion of dependencies such as libpcap and check, and the generation of multiple executables in the same project, even from the same source files. I used the \textbf{Check} unit-testing framework for C.
+
+
+\subsubsection{Other Tools}
+
+I used \textbf{CORE version 7.5.2} as it provides a reliable network emulation platform for development and evaluation of network protocols. In particular, it allowed me to disable the existing routing protocols and replace them with my own.
+
+I used the \textbf{Packet CAPture (.PCAP)} format, a standard file format for packet data, to store the buffered packets on the router until they could be replayed. It was chosen as tcpdump and tcpreplay understand this format natively.
+
+
+\subsection{Starting Point}
+
+This project does not build on any other code/project, but only makes use of common tools and libraries such as libpcap, CORE, and matplotlib (for plotting graphs in the dissertation). CORE comes packaged with standard routing protocol implementations of OSPFv2 and v3, however I disable these completely and do not use them as a starting point for my code, neither for inspiration nor code snippets.
+
+
+\subsection{Summary}
+
+This project requires an understanding of existing 
+
+
 \section{Implementation}
 % JCW : Can we start with something more exciting?  E.g. a brief overview of what you've implemented?
 % I think 2 paragraphs explaining what you've implemented would go very well here --- and help the reader navigate this section.
@@ -278,7 +324,7 @@ On receiving an LSA from a neighbour, we must carefully merge the neighbour's re
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
 	\includegraphics[width=1\textwidth]{lsa}
-	\captionof{figure}{Node A receives an LSA from node B, and merges it in to get the most up-to-date view of the network.}
+	\captionof{figure}{Node A receives an LSA from node B, and merges it in to get the most up-to-date view of the network. Blue nodes and links are from A, yellow from B.}
 	\label{fig:lsa}
 \end{minipage}
 \end{center}
