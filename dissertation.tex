@@ -37,6 +37,11 @@
 \usepackage{caption}
 \usepackage{subcaption}
 \usepackage{wrapfig}
+\usepackage{listings}
+
+\lstset{
+	basicstyle=\ttfamily
+}
 
 \usepackage[absolute,overlay]{textpos}
 
@@ -115,7 +120,7 @@ However in environments such as developing regions with unreliable network infra
 %JCW: is 'One appraoch' your implemented approach?  If so say -- it's not clear to me why I should care about this otherwise.
 % If it is your approach we should draw more attention to it --- subsection here
 \subsection{Delay Tolerant Networking}
-We explore one approach to make traditional routing more `delay-tolerant'. We do this by allowing routing paths to be advertised through down links, and to use a `store-and-forward' mechanism for packet forwarding where if the link on the outgoing interface is down, any packets incoming to the router that would be forwarded out on that interface are buffered in-memory by the router, seen in Figure \ref{fig:saf_down}. When the link comes back up, all of the buffered packets are sent out of the desired interface, seen in Figure \ref{fig:saf_up}. This maintains end-to-end connectivity as much as possible and decreases the drop rate of packets dramatically, which we can see particularly in Figure \ref{fig:pathalogical}.
+We explore one approach to make traditional routing more `delay-tolerant'. We do this by allowing routing paths to be advertised through down links, and to use a `store-and-forward' mechanism for packet forwarding where if the link on the outgoing interface is down, any packets incoming to the router that would be forwarded out on that interface are buffered in-memory by the router, seen in Figure~\ref{fig:saf_down}. When the link comes back up, all of the buffered packets are sent out of the desired interface, seen in Figure~\ref{fig:saf_up}. This maintains end-to-end connectivity as much as possible and decreases the drop rate of packets dramatically, which we can see particularly in Figure~\ref{fig:pathalogical}.
 
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
@@ -182,30 +187,33 @@ There has been much research into `mobile ad-hoc networks', where mobile nodes p
 
 \subsection{Software Engineering Tools and Techniques}
 
+\subsubsection{Requirements Analysis}
 
-\subsubsection{Programming Languages}
+\begin{tabular}{|c|c|c|c|}
+Requirement & Success Criteria & Workload & Risk
+\end{tabular}
 
-I used \textbf{C} because of extensive previous experience in internships and the Part 1B course, and in order to have low-level access to Unix system calls. As well as this industry-grade routing protocols are generally written in C or assembly, and I wanted to emulate this as much as possible.
+\subsubsection{Tools}
 
-I used \textbf{Python} to interact with the CORE API, for scripting the testing environment used to evaluate and develop the routing protocols. The Python API is the only one provided, thus it was a natural choice. I also used Python extensively to do analyse and plot the collected data.
+\paragraph{Programming Languages:}
 
+I used \textbf{C} because of extensive previous experience in internships and the Part 1B course, and in order to have low-level access to Unix system calls. As well as this industry-grade routing protocols are generally written in C or assembly, and I wanted to emulate this as much as possible. I used \textbf{Python} to interact with the CORE API, for scripting the testing environment used to evaluate and develop the routing protocols. The Python API is the only one provided, thus it was a natural choice. I also used Python extensively to do analyse and plot the collected data.
 
-\subsubsection{Libraries}
+\paragraph{Libraries:}
 
 I used \textbf{libpcap} and its command-line equivalent \textbf{tcpdump} for buffering received packets and storing them on the router when the outgoing link was down. I used \textbf{tcpreplay} to send the packets buffered by the tools above out onto the outgoing link when it came back up.
 
-
-\subsubsection{Version Control and Backup}
+\paragraph{Version Control and Backup:}
 
 I used the \textbf{Git} version control tool, with the repository backed up on the \textbf{GitHub} platform. The repository is also backed up on an external hard drive.
 
 
-\subsubsection{Repository Management}
+\paragraph{Repository Management:}
 
 I used the \textbf{CMake} build system for C, which allows easy inclusion of dependencies such as libpcap and check, and the generation of multiple executables in the same project, even from the same source files. It also provides platform independence. I used the \textbf{Check} unit-testing framework for C.
 
 
-\subsubsection{Other Tools}
+\paragraph{Other Tools:}
 
 I used \textbf{CORE version 7.5.2} as it provides a reliable network emulation platform for development and evaluation of network protocols. In particular, it allowed me to disable the existing routing protocols and replace them with my own.
 
@@ -216,11 +224,13 @@ I used the \textbf{Packet CAPture (.PCAP)} format, a standard file format for pa
 
 This project does not build on any other code/project, but only makes use of common tools and libraries such as libpcap, CORE, and matplotlib (for plotting graphs in the dissertation). CORE comes packaged with standard routing protocol implementations of OSPFv2 and v3, however I disable these completely and do not use them as a starting point for my code, neither for inspiration nor code snippets.
 
+\subsection{Techniques}
+
+Throughout this project an iterative development model was adopted...
 
 \subsection{Summary}
 
 The concepts and algorithms required for the dissertation were mostly covered in Part IB Computer Networking, but the delay-tolerant protocol modifications were not included in the course and I had no prior experience with them. Previous experience with C came from the Part IB course as well as a summer internship doing embedded development.
-
 
 \section{Implementation}
 % JCW : Can we start with something more exciting?  E.g. a brief overview of what you've implemented?
@@ -259,7 +269,7 @@ The project was implemented almost entirely in C, with CORE-specific scripts in 
 
 \subsection{Common Open Research Emulator (CORE)}
 
-CORE is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces. It comes out of the US Naval Research Laboratory and was developed by Boeing Research and Technology. In Figure \ref{fig:core_topology} we see an example topology in the CORE GUI.
+CORE is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces. It comes out of the US Naval Research Laboratory and was developed by Boeing Research and Technology. In Figure~\ref{fig:core_topology} we see an example topology in the CORE GUI.
 
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
@@ -269,9 +279,9 @@ CORE is a network emulator that models nodes as lightweight Unix virtual machine
 \end{minipage}
 \end{center}
 
-Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network simple: in Figure \ref{fig:core_topology} we could run \texttt{ping 10.0.5.10} from the node \texttt{n7}, sending pings between \texttt{n7} and \texttt{n6}.
+Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network simple: in Figure~\ref{fig:core_topology} we could run \texttt{ping 10.0.5.10} from the node \texttt{n7}, sending pings between \texttt{n7} and \texttt{n6}.
 
-Link properties such as delay and loss can be programmatically customised through the Python API. This aids greatly in evaluation, allowing us to simulate network partitions and other network events. In Figure \ref{fig:core_topology} if we disabled link \texttt{n1-n2} the pings going between \texttt{n7} and \texttt{n6} would have to be rerouted through \texttt{n5} and \texttt{n4}.
+Link properties such as delay and loss can be programmatically customised through the Python API. This aids greatly in evaluation, allowing us to simulate network partitions and other network events. In Figure~\ref{fig:core_topology} if we disabled link \texttt{n1-n2} the pings going between \texttt{n7} and \texttt{n6} would have to be rerouted through \texttt{n5} and \texttt{n4}.
 
 An interesting point is that because CORE operates in real-time using the OSes clock, the performance of the simulated network is dependent on the performance of the machine it's running on. We therefore take great care to create a reliable and statistically sound testing environment, for example setting processor priority, not running other programs, and taking baseline measurements to compare against. However the clock sharing is also an advantage for evaluation, as when deriving the time between events on different virtual machines we don't need to account for any clock drift; the time difference will be as exact as if they were the same machine. This will make evaluation easier and more accurate, reducing the error.
 
@@ -283,7 +293,7 @@ The link-state routing protocol that I implemented is split into two programs, \
 % Perhaps with example LSR contents?
 \texttt{heartbeat} sends periodic heartbeat messages to all neighbouring nodes, notifying them that the connecting link is still up. The message is received by \texttt{lsr}. Hosts run \texttt{heartbeat} to notify their gateway router of their existence, so that the router can advertise the corresponding route.
 
-\texttt{lsr} implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends link-state announcements (LSAs) to neighbours in response to detected changes in the network. When we say a link is UP or DOWN we mean the router's logical link-state representation of the network, which is a `lagged' view of its real state. The event loop of \texttt{lsr} is shown in Figure \ref{fig:flowchart_lsr}.
+\texttt{lsr} implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends link-state announcements (LSAs) to neighbours in response to detected changes in the network. When we say a link is UP or DOWN we mean the router's logical link-state representation of the network, which is a `lagged' view of its real state. The event loop of \texttt{lsr} is shown in Figure~\ref{fig:flowchart_lsr}.
 
 Changes are detected in one of three ways:
 \begin{enumerate}
@@ -315,7 +325,7 @@ We send LSAs to our neighbours whenever we detect a change in the network, propa
 
 \subsubsection{Graph Merging}
 
-On receiving an LSA from a neighbour, we must carefully merge the neighbour's representation of the network into our own, only taking the most recent information. We see in Figure \ref{fig:lsa} an example of a merge.
+On receiving an LSA from a neighbour, we must carefully merge the neighbour's representation of the network into our own, only taking the most recent information. We see in Figure~\ref{fig:lsa} an example of a merge.
 
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
@@ -337,12 +347,11 @@ For each node in the global graph, we store for each link information like the s
 
 The local graph consists solely of our node along with more in-depth information about links connecting us to our immediate neighbours. Along with all of the information contained in a global node, we also have for each link a timer for timing out heartbeats and the interface which that link goes out on. We take the locally-derived information and feed it into the global graph, which then gets shared with the rest of the network via LSAs.
 
-The data structures for each are given below. The global graph is an array of \texttt{Node}s, and the local graph is a single instance of \texttt{LocalNode}.
+The data structures for each are detailed in Listing~\ref{node_data_structs}. The global graph is an array of \texttt{Node}s, and the local graph is a single instance of \texttt{LocalNode}.
 
 % BMA -- C is hard to read, maybe some better way to include this?
-\begin{center}
-\begin{minipage}{0.5\textwidth} \centering
-\begin{verbatim}
+\begin{minipage}{1\textwidth} \centering
+\begin{lstlisting}[language=C, label=node_data_structs, frame=tb, columns=fullflexible, caption=C source code for \texttt{Node} and \texttt{LocalNode} data structures.]
 typedef struct node {
   int id;
   enum NodeState state;
@@ -356,10 +365,7 @@ typedef struct node {
   // Node last update time
   unsigned long long timestamp;
 } Node;
-\end{verbatim}
-\end{minipage}%
-\begin{minipage}{0.5\textwidth} \centering
-\begin{verbatim}
+
 typedef struct local_node {
   Node node;
   // Heartbeat timer array
@@ -367,26 +373,22 @@ typedef struct local_node {
   // Outgoing interfaces
   char *interfaces[MAX_NODE_FAN];
 } LocalNode;
-\end{verbatim}
+\end{lstlisting}
 \end{minipage}
-\end{center}
 
 \subsubsection{Route Generation}
 
-We generate routes from the link-state graph, computing shortest paths from ourself to every other node using Dijkstra's algorithm. From each shortest path we get the next-hop node, which we add to the routing table along with the destination IP so that the router knows where to forward incoming packets. Along with adding new routes we also delete old stale routes, which have either been made obselete by a new, better route, or do not exist anymore due to failure.
+We generate routes from the link-state graph, computing shortest paths from ourself to every other node using Dijkstra's algorithm. From each shortest path we get the next-hop node, which we add to the routing table along with the destination IP subnet so that the router knows where to forward incoming packets. Along with adding new routes we also delete old stale routes, which have either been made obselete by a new, better route, or do not exist anymore due to failure.
 
 Dijkstra's algorithm computes paths on a weighted graph, allowing us to choose a metric to judge links against each other. Traditional OSPF uses a bandwidth-based metric, but I chose to use the number of hops in the path instead, as delay is more important than throughput in delay-tolerant networks.
 
 With many destinations we have a large number of routing table entries, but we can reduce this by aggregating routes together that share an outgoing interface and IP prefix. As the routing table operates by prefix matching, we only need to insert the shared prefix into the table, reducing the number of entries required greatly.
 
-
-% Same here --- there is a weird state change between these paragraphs that I can't quite put my finger on (first feels like it's describing fields, second an algorithm, and this one a property?)
-Manipulation of the Unix routing table is done through
-\texttt{ioctl}, a system call for interacting with OS devices through a file descriptor interface. We pass a flag corresponding to route addition or deletion, along with a `\texttt{route}' struct containing the route details.
+Manipulation of the Unix routing table is done through \texttt{ioctl}, a system call for interacting with OS devices through a file descriptor interface. We pass a flag corresponding to route addition or deletion, along with a `\texttt{route}' struct containing the route details.
 
 \subsection{Delay-Tolerant Modifications}
 
-For the delay-tolerant version of the protocol suite, we replace the \texttt{lsr} executable with \texttt{dtlsr}, keeping \texttt{heartbeat} the same. \texttt{dtlsr} uses mostly the same source files as \texttt{lsr}, with the delay-tolerant modifications enabled by \texttt{\#ifdef DTLSR} preprocessor switches. \texttt{dtlsr} maintains many of the same implementation design decisions as above with a few additions. We see the modified event loop of \texttt{dtlsr} in Figure \ref{fig:flowchart_dtlsr}.
+For the delay-tolerant version of the protocol suite, we replace the \texttt{lsr} executable with \texttt{dtlsr}, keeping \texttt{heartbeat} the same. \texttt{dtlsr} uses mostly the same source files as \texttt{lsr}, with the delay-tolerant modifications enabled by \texttt{\#ifdef DTLSR} preprocessor switches. \texttt{dtlsr} maintains many of the same implementation design decisions as above with a few additions. We see the modified event loop of \texttt{dtlsr} in Figure~\ref{fig:flowchart_dtlsr}.
 
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
@@ -410,41 +412,51 @@ An interesting implementation detail is that we must also add this route to the 
 
 If an outgoing link from a router is down, in our delay-tolerant context the router is responsible for locally buffering incoming traffic that should be going out of the outgoing interface. This is done until either the link comes back up or a better alternative route appears, at which point we send it on.
 
-We use the \texttt{tcpdump} tool for interface listening. When a router knows a connected link is down, it starts listening on all interfaces and dumping received packets to a \texttt{pcap} file, according to a packet filter that only dumps packets going to an IP address that we route to via the down interface, as seen in Figure \ref{fig:ip_route}. \texttt{tcpdump} is interacted with via the \texttt{libpcap} C library linked in statically with the executable, with the packet filter programmed using the Berkeley Packet Filter (BPF) language. An important optimisation is to place this \texttt{pcap} file on a RAM disk to maximise throughput and minimise latency that can occur when storing files on an SSD or HDD.
+We use the \texttt{tcpdump} tool for interface listening. When a router knows a connected link is down, it starts listening on all interfaces and dumping received packets to a \texttt{pcap} file, according to a packet filter that only dumps packets going to an IP address that we route to via the down interface, as seen in Figure~\ref{fig:ip_route}. \texttt{tcpdump} is interacted with via the \texttt{libpcap} C library linked in statically with the executable, with the packet filter programmed using the Berkeley Packet Filter (BPF) language. An important optimisation is to place this \texttt{pcap} file on a RAM disk to maximise throughput and minimise latency that can occur when storing files on an SSD or HDD.
 
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
 	\includegraphics[width=0.6\textwidth]{ip_route}
-	\captionof{figure}{The router buffers traffic en-route to the \texttt{10.0.2.0/24} or \texttt{10.0.3.0/24} subnets, as specified by the packet filter.}
+	\captionof{figure}{The router buffers traffic en-route to the \texttt{10.0.2.0/24} or \texttt{10.0.3.0/24} subnets, as specified by the packet filter. Packets en-route to subnet \texttt{10.0.1.0/24} are forwarded like normal, without buffering.}
 	\label{fig:ip_route}
 \end{minipage}
 \end{center}
 
-When the link comes back up, we stop listening for packets and dumping them to the file, and close the file. From now incoming packets are being routed out of the interface correctly so we don't want to duplicate data by buffering then resending it. We make use of a command-line tool, \texttt{tcpreplay}, which allows packets from \texttt{pcap} files to be replayed out of  an interface. We do this, and then delete the file. Described here is the case of a single failing link, but when multiple links are concurrently failing and coming back up we of course need to be more careful about listening for and replaying only the right data.
+When the link comes back up, we stop listening for packets and dumping them to the file, and close the file. From now incoming packets are being sent onto the link correctly so we don't want to duplicate data by buffering then resending it. We make use of a command-line tool, \texttt{tcpreplay}, which allows packets from \texttt{pcap} files to be replayed out of  an interface. We see the command-line call in Listing~\ref{replay_command}. We do this, and then delete the file. Described here is the case of a single failing link, but when multiple links are concurrently failing and coming back up we of course need to be more careful about listening for and replaying only the right data.
+
+\begin{lstlisting}[label=replay_command, caption=\texttt{tcpreplay} command with explanation of arguments, frame=tb]
+tcpreplay --topspeed -ieth0 input.pcap
+
+--topspeed - send packets as quickly as possible
+-ieth0     - send on interface eth0
+input.pcap - .pcap file to read packets from
+\end{lstlisting}
 
 % JCW yeah it's a full research project -- a citation would be good ifyou have one.
 I chose to use existing tools for packet buffering due to the complexity of this problem, as well as issues with reliability. Even a mature and tested tool like \texttt{tcpdump} still cannot catch all incoming packets at higher speeds, I would have no hope of implementing a suitable alternative in the time I had; it would likely be a part II project in its own right.
 
 \subsubsection{Delay-Tolerant Metric}
 
-We need some metric to be able to judge the expected delay of a link, in order to compare it to a stable backup link that we can switch onto when appropriate, to minimise the overall delay. This alternative metric is needed only when the link is DOWN, as this is the case when we would want to switch. When the link is up we want to send out our buffered packets as quickly as possible, so a metric with some level of hysteresis as we describe below is inappropriate. Through testing it is far more effective to fall back to the standard hop-count metric once the link comes back up.
+We need some metric to be able to judge the expected delay of a link, in order to compare it to a stable backup link that we can switch onto when appropriate, to minimise the overall delay. This alternative metric is needed only when the link is down, as this is the case when we would want to switch. When the link comes back up we want to send out our buffered packets as quickly as possible, so a metric with some level of hysteresis as we describe below is inappropriate. Through testing it is far more effective to immediately fall back to the standard hop-count metric once the link comes back up.
 
 Assuming that the link will come back up, not switching to the backup link will have no effect on delivery rate as the packets will be buffered, and will reach their destination eventually. However we want to do this in order to reduce the average delay that packets experience, where waiting for the link to come back up will take longer than simply sending via the backup route. We want some level of hysteresis for this so that if failures are historically rare and short-lived, we stick to the primary link.
 
-We use a metric based on the uptime history of the link, computing an integral over the history after exponentially weighting it, as we can see in Figure \ref{fig:metric}. Integrating over the uptime history tells us how often the link is up, giving us some idea of its reliability over time, and the exponential weighting gives more importance to recent events, making it more responsive to changes. The parameters to the exponential weighting allow us to tune its responsiveness.
+We use a metric based on the uptime history of the link, computing an integral over the history after exponentially weighting it, as we can see in Figure~\ref{fig:metric}. Integrating over the uptime history tells us how often the link is up, giving us some idea of its reliability over time, and the exponential weighting gives more importance to recent events, making it more responsive. The parameters to the exponential weighting allow us to tune its responsiveness.
 
-Equation \ref{eq:metric_integral} shows how we compute the integral over one UP period, between times $t_0$ and $t_1$. Our falloff parameter $\alpha$ tunes the metric's responsiveness to changing conditions, increasing it increases the falloff. We compute this integral over each of the UP periods, summing the results together in Equation \ref{eq:metric_sum}.
+Equation~\ref{eq:metric_integral} shows how we compute the integral over one UP period, between times $t_0$ and $t_1$. Our falloff parameter $\alpha$ tunes the metric's responsiveness to changing conditions, increasing it increases the falloff. We compute this integral over each of the UP periods, summing the results together in Equation~\ref{eq:metric_sum}.
 
 \begin{equation} \label{eq:metric_integral}
-F(t_0, t_1) = \int_{t_0}^{t_1} f(t) = e^{\alpha t_1} - e^{\alpha t0}
+F(t_0, t_1) = \int_{t_0}^{t_1} f(t) = e^{\alpha \cdot t_1} - e^{\alpha \cdot t_0}
 \end{equation}
 
 \begin{equation} \label{eq:metric_sum}
 F = \sum_{i = 0}^{|\textbf{History}|/2} F(t_{2i}, t_{2i+1})
 \end{equation}
 
+The value of $F$ decreases approaching zero as our uptime decreases approaching zero, but we want to inverse this relationship as lower value metrics are chosen with higher preference. As uptime approaches zero, we would like our metric to increase approaching some large value. In the Unix routing table metrics are stored as a 16-bit unsigned value, which has a maximum value of 65,535. We thus want to bound our maximum value below this to prevent integer underflow, which would assign the wrong metric to the route. Our final metric is that shown in Equation~\ref{eq:metric_final}, which has a maximum value of 50,000 when $F$ is 0. Furthermore when the uptime is 100\% the metric takes its minimum value of 1, equal to the hop count of a single UP link that we would use in LSR.
+
 \begin{equation} \label{eq:metric_final}
-\textit{metric} = \frac{1}{F+0.0001}
+\textit{metric} = \Big\lfloor\frac{1}{F+0.00002}\Big\rfloor
 \end{equation}
 
 \begin{center}
@@ -455,7 +467,9 @@ F = \sum_{i = 0}^{|\textbf{History}|/2} F(t_{2i}, t_{2i+1})
 \end{minipage}
 \end{center}
 
-We store the uptime history as a circular array of timestamps, each representing the time of an UP or DOWN event. As we know the current state of the link, we can work our way backwards through the array to compute which type of event any given timestamp represents, rather than explicitly storing it. Once the array fills up we start overwriting old events to save memory, however discarding these values has negligible effect on the metric due to the exponential weighting.
+We store the uptime history as a circular array of Unix timestamps, each representing the time of an UP or DOWN event. As we know the current state of the link, we can work our way backwards through the array to compute which type of event any given timestamp represents, rather than explicitly storing it. Once the array fills up we start overwriting old events to save memory, however discarding these values has negligible effect on the metric due to the exponential weighting.
+
+The timestamps signify the times of events, but we calculate the metric with respect to our current time. If the last event was a DOWN event, we can imagine the function plot in Figure~\ref{fig:metric} sliding left, changing the value of the metric over time due to the exponential weighting. Because of this changing metric we must periodically update the routing table, as there may be alternative routes with a lower path cost due to the metric increasing.
 
 \subsection{Implementation Practicalities}
 
@@ -518,9 +532,9 @@ We monitor each node's routing table using the \texttt{route} Unix utility, with
 
 We do convergence testing with link delays of \SI{1}{\ms} and \SI{100}{\ms}. A link delay of \SI{100}{\ms} is large enough to verify that the convergence time depends on the hop count, from the propagation time, while a delay of \SI{1}{\ms} is what we use for the rest of the evaluation, so it is useful to include as a baseline.
 
-In \ref{fig:conv_1ms} we see that the zero-hop node \texttt{n2} has a `convergence' time greatly less than the rest of the nodes, which is because \texttt{n2} detects the change using the link-layer heartbeat section of the protocol. For the link being down our detection depends on a heartbeat timeout after not receiving a heartbeat. For being up our detection depends on receiving a heartbeat from our neighbour. We justify the time difference between up and down with the fact that the heartbeat timeout must necessarily be longer than the heartbeat sending period.
+In~\ref{fig:conv_1ms} we see that the zero-hop node \texttt{n2} has a `convergence' time greatly less than the rest of the nodes, which is because \texttt{n2} detects the change using the link-layer heartbeat section of the protocol. For the link being down our detection depends on a heartbeat timeout after not receiving a heartbeat. For being up our detection depends on receiving a heartbeat from our neighbour. We justify the time difference between up and down with the fact that the heartbeat timeout must necessarily be longer than the heartbeat sending period.
 
-Hop counts of 1 and above rely on the network-layer section of the protocol, with link-state information being sent from node to node. As LSAs are propagated as soon as they are received, we are bounded mainly by the link delay, which we can see in the difference between the higher hop counts of \ref{fig:conv_1ms} and \ref{fig:conv_100ms}. In \ref{fig:conv_1ms} the delay is so small as for each subsequent hop to be indistinguishable from the last, but in \ref{fig:conv_100ms} we see the delay increasing the convergence time for each hop cumulatively.
+Hop counts of 1 and above rely on the network-layer section of the protocol, with link-state information being sent from node to node. As LSAs are propagated as soon as they are received, we are bounded mainly by the link delay, which we can see in the difference between the higher hop counts of~\ref{fig:conv_1ms} and~\ref{fig:conv_100ms}. In~\ref{fig:conv_1ms} the delay is so small as for each subsequent hop to be indistinguishable from the last, but in~\ref{fig:conv_100ms} we see the delay increasing the convergence time for each hop cumulatively.
 
 It is interesting to note that subsequent hops depend on the cumulative time added by all previous hops, due to propagation. As the difference between up and down remains constant after the zero-hop node, we can conclude that the network-layer behaviour is the same for up and down.
 
