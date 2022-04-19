@@ -65,7 +65,8 @@
 \usepackage{listings}
 
 \lstset{
-	basicstyle=\ttfamily
+	basicstyle=\ttfamily,
+	literate={~} {$\sim$}{1}
 }
 
 \usepackage[absolute,overlay]{textpos}
@@ -85,6 +86,8 @@
 %% Thesis meta-information
 %%
 
+
+\pagenumbering{gobble}
 %% The title of the thesis:
 \title{Delay-Tolerant Link-State Routing}
 
@@ -114,8 +117,6 @@
 %%
 \begin{document}
 
-\pagenumbering{gobble}
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Title page, abstract, declaration etc.:
 %% -    the title page (is automatically omitted in the technical report mode).
@@ -129,7 +130,7 @@
 %% Introduction
 %%
 
-The project contains 4605 lines of code, consisting of 3944 lines of C and 661 lines of Python
+%The project contains 4605 lines of code, consisting of 3944 lines of C and 661 lines of Python
 
 \pagebreak
 
@@ -240,33 +241,44 @@ There has been much research into `mobile ad-hoc networks', where mobile nodes p
 
 An alternative solution to the problem of delay-tolerance  is for the source to retransmit packets that it believes have been dropped. This may be done in an end-to-end manner via signalling, such as TCPs fast retransmit, or by timeout in the absence of a signal, such as TCP timeout on the absence of receiving an ACK.
 
-For the environment we are concerned with where links go down for extended periods of time, we are naturally only able to consider the second case, where the absence of a signal indicates loss. We could consider the first case if intermediate routers were able to signal, but for this we are considering session-level TCP-like protocols that are in common use.
+For the environment we are concerned with where links go down for extended periods of time, we are naturally only able to consider the second case, where the absence of a signal indicates loss. We could consider the first case if intermediate routers before the failed link were able to signal, but for this we are considering session-level TCP-like protocols that are in common use.
 
-If we set the retransmission timeout to $\alpha$ seconds, and the time the link is down to $\beta$ seconds, then assuming a best-case of zero propagation delay and that we send the packet as soon as the link goes down, we retransmit the packet $N$ times (causing a total of $N$ packet drops including the initial transmission) and once the link comes back up we have an error where we wait for $E$ seconds before transmitting the packet that actually gets through. These are described in Equation~\ref{eq:retransmission}.
+If we set the retransmission timeout to $\alpha$ seconds, and the time the link is down to $\beta$ seconds, then assuming we send the packet as soon as the link goes down and that we have a best-case of zero propagation delay, we retransmit the packet $N$ times (causing a total of $N$ packet drops including the initial transmission), shown in Equation~\ref{eq:retransmission_n}. Once the link comes back up we have an error where we wait for $E$ seconds before transmitting the packet that actually gets through, shown in Equation~\ref{eq:retransmission_e}.
 
-\begin{equation} \label{eq:retransmission}
-N = \Big\lceil\frac{\beta}{\alpha}\Big\rceil 
-\quad\quad\quad
+\begin{minipage}{0.35\textwidth}
+\begin{equation} \label{eq:retransmission_n}
+N = \Big\lceil\frac{\beta}{\alpha}\Big\rceil
+\end{equation}
+\end{minipage}%
+\begin{minipage}{0.65\textwidth}
+\begin{equation} \label{eq:retransmission_e}
 E = \alpha N - \beta = \alpha \Big\lceil\frac{\beta}{\alpha}\Big\rceil - \beta
 \end{equation}
+\end{minipage}
 
 The error $E$ is due to the fact that we are not responding to the changing state of the link, but just periodically `polling' until it works. This is a fundamental limitation of using an end-to-end technique to detect an intermediate failure along the path, and is thus one of the reasons we chose to explore the network-layer technique of packet buffering instead. As the router detects the link coming up, it can immediately respond by sending the buffered packets, minimising the time wasted and minimising the end-to-end packet delay.
 
 As well as having a larger delay, we see in the value of $N$ and in the name of the technique itself that the sending source must continually retransmit packets, making poor use of valuable processor time and memory. Packet buffering techniques drastically minimise this, with the source most of the time only having to transmit the packet once even when the link is down.
 
-As shown in the evaluation packet buffering techniques do still have packet drops and so some end-to-end retransmission is needed, but when the link comes back up we are free to use an explicit signalling technique from the destination endpoint to identify dropped packets, minimising the amount of retransmission that the source needs to do.
+As shown in the evaluation packet buffering techniques do still have a small number of packet drops and so some end-to-end retransmission is needed, but when the link comes back up we are free to use an explicit signalling technique from the destination endpoint to identify dropped packets, such as TCPs triple-ACKed fast retransmit, minimising the amount of retransmission that the source needs to do.
 
 \section{Common Open Research Emulator (CORE)}
 
-CORE is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces. It comes out of the US Naval Research Laboratory and was developed by Boeing Research and Technology. In Figure~\ref{fig:core_topology} we see an example topology in the CORE GUI, and in Listing~\ref{core_filesystem} we see an example of a virtualised file-system of one of the nodes; boot scripts and log files of the \texttt{dtlsr} and \texttt{heartbeat} (\texttt{hbt}) protocols are visible.
+CORE is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces. It comes out of the US Naval Research Laboratory and was developed by Boeing Research and Technology. In Figure~\ref{fig:core_topology} we see an example topology in the CORE GUI, and in Listing~\ref{core_filesystem} we see an example of a virtualised file-system of one of the nodes; boot scripts and log files of the \texttt{dtlsr} and \texttt{heartbeat} (\texttt{hbt}) protocols are visible. Nodes communicate via virtualised interfaces, connected by bridges emulating physical links. We see an example of this in Listing~\ref{core_interfaces}.
 
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
 	\includegraphics[width=0.65\textwidth]{core_topology}
-	\captionof{figure}{Example emulated network in the CORE GUI, showing virtualised routers and hosts along with their IP addresses.}
+	\captionof{figure}{Example emulated network in the CORE GUI, showing virtual routers and hosts along with their IP addresses.}
 	\label{fig:core_topology}
 \end{minipage}
 \end{center}
+
+Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network simple: in Figure~\ref{fig:core_topology} we could run \texttt{ping 10.0.5.10} from the node \texttt{n7}, sending pings between \texttt{n7} and \texttt{n6}.
+
+Link properties such as delay and loss can be programmatically customised through the Python API. This aids greatly in evaluation, allowing us to simulate network partitions and other network events. In Figure~\ref{fig:core_topology} if we disabled link \texttt{n1-n2} the pings going between \texttt{n7} and \texttt{n6} would have to be rerouted through \texttt{n5} and \texttt{n4}.
+
+An interesting point is that because CORE operates in real-time using the host operating systems clock, the performance of the simulated network is dependent on the performance of the machine it's running on. We therefore take great care to create a reliable and statistically sound testing environment, for example setting processor priority, not running other programs, and taking baseline measurements to compare against. However the clock sharing is also an advantage for evaluation, as when deriving the time between events on different virtual machines we don't need to account for any clock drift; the time difference will be as exact as if they were the same machine. This will make evaluation easier and more accurate, reducing the error.
 
 \begin{minipage}{1\textwidth} \centering
 \begin{lstlisting}[label=core_filesystem, frame=tb, caption=Virtualised file-system of the node \texttt{n1}]
@@ -286,11 +298,27 @@ drwxrwxrwx 2 root root 4.0K Apr 16 14:43 var.run
 \end{lstlisting}
 \end{minipage}
 
-Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network simple: in Figure~\ref{fig:core_topology} we could run \texttt{ping 10.0.5.10} from the node \texttt{n7}, sending pings between \texttt{n7} and \texttt{n6}.
-
-Link properties such as delay and loss can be programmatically customised through the Python API. This aids greatly in evaluation, allowing us to simulate network partitions and other network events. In Figure~\ref{fig:core_topology} if we disabled link \texttt{n1-n2} the pings going between \texttt{n7} and \texttt{n6} would have to be rerouted through \texttt{n5} and \texttt{n4}.
-
-An interesting point is that because CORE operates in real-time using the host operating systems clock, the performance of the simulated network is dependent on the performance of the machine it's running on. We therefore take great care to create a reliable and statistically sound testing environment, for example setting processor priority, not running other programs, and taking baseline measurements to compare against. However the clock sharing is also an advantage for evaluation, as when deriving the time between events on different virtual machines we don't need to account for any clock drift; the time difference will be as exact as if they were the same machine. This will make evaluation easier and more accurate, reducing the error.
+\begin{minipage}{1\textwidth} \centering
+\begin{lstlisting}[label=core_interfaces, frame=tb, caption=Virtualised ethernet network interfaces (\texttt{veth}) are connected by bridges.]
+ben@ben-laptop:~$ nmcli device status
+DEVICE          TYPE      STATE         CONNECTION
+b.10.1          bridge    connected     b.10.1
+b.11.1          bridge    connected     b.11.1
+b.7.1           bridge    connected     b.7.1
+b.8.1           bridge    connected     b.8.1
+b.9.1           bridge    connected     b.9.1
+veth1.0.1       ethernet  unmanaged     --
+veth1.1.1       ethernet  unmanaged     --
+veth1.2.1       ethernet  unmanaged     --
+veth2.0.1       ethernet  unmanaged     --
+veth2.1.1       ethernet  unmanaged     --
+veth2.2.1       ethernet  unmanaged     --
+veth3.0.1       ethernet  unmanaged     --
+veth4.0.1       ethernet  unmanaged     --
+veth5.0.1       ethernet  unmanaged     --
+veth6.0.1       ethernet  unmanaged     --
+\end{lstlisting}
+\end{minipage}
 
 \section{Software Engineering Tools and Techniques}
 
@@ -362,7 +390,7 @@ We have implemented two routing protocols, \texttt{LSR} and \texttt{DTLSR}...
 
 \section{Repository Overview}
 \begin{minipage}{1\textwidth} \centering
-\begin{lstlisting}[label=node_ex_listing, frame=tb, columns=fullflexible]
+\begin{lstlisting}[label=repository, frame=tb]
 dtlsr                        Root
 |- configs                   CORE config files
 |- include                   Include directory
@@ -382,11 +410,16 @@ dtlsr                        Root
 \end{lstlisting}
 \end{minipage}
 
-\texttt{algorithm} contains pure algorithms and data structures, for example graph, graph searching, and heap implementations.
+\begin{itemize}
+	\item
+	\texttt{algorithm} contains pure algorithms and data structures, for example graph, graph searching, and heap implementations.
 
-\texttt{network} contains functionality for socket manipulation, sending data over the network, and packet listening/replay.
-
-\texttt{process} contains funtionality for interacting with both CORE and the Unix OS, for example retrieving node information, logging, and manipulating the Unix routing table.
+	\item
+	\texttt{network} contains functionality for socket manipulation, sending data over the network, and packet listening/replay.
+	
+	\item
+	\texttt{process} contains funtionality for interacting with both CORE and the Unix OS, for example retrieving node information, logging, and manipulating the Unix routing table.
+\end{itemize}
 
 The project was implemented almost entirely in C, with CORE-specific scripts in Python. I used the CMake build system and Check unit testing framework.
 
@@ -614,9 +647,9 @@ While CORE supports IPv6 addressing, I restricted myself to only supporting IPv4
 The evaluation is done using the CORE emulator. We define a network topology of hosts and routers, with the routers running either the LSR or DTLSR routing protocol, in order to compare the performance of both for a variety of metrics on a variety of different topologies.
 % JCW: Add a sentence about why these are the right metrics to measure
 
-We first determine the convergence behaviour of the protocols, to provide a baseline of the testing environment. This is done with LSR, but as DTLSR's system for this is identical the results are valid for both.
+We first determine the convergence behaviour of the protocols, to provide a baseline of the testing environment. This is done with LSR, but as DTLSR's system for this is identical the results are valid for both. Convergence time is important for a discussion of delay, as included in the delay is the time taken for routers to respond to changes of the network state; minimising the convergence time should aid us in minimising overall packet delay.
 
-We then do a full comparison of the delay of packet arrivals in LSR and DTLSR in a number of topologies, importantly providing the overall packet loss percentage as well.
+We then do a full comparison of the delay of packet arrivals in LSR and DTLSR in a number of topologies, importantly providing the overall packet loss percentage as well. Packet loss has a critical influence on delay, as the time taken to detect a loss and retransmit can be many orders of magnitude above the time to propagate a packet through the network, drastically increasing the mean delay. We must also consider that information may be spread across multiple packets, meaning that individual packet losses can prevent us from using already received data that depends on it, causing a bottleneck. Thus minimising packet drop rate is critically important.
 
 \section{Convergence}
 % JCW: this needs way more subsections --- in general, if you are doing more than 2 paras/subsection, you should think about more subsections --- they just help guide the reader
@@ -633,7 +666,20 @@ Our testing topology is a long chain of routers, shown in Figure~\ref{fig:conv_t
 
 We flap the link using the Python scripting API that CORE provides, waiting 4 seconds between each state change - long enough that we guarantee that all nodes have fully converged before we modify the state again. We log the time when this occurs.
 
-We monitor each node's routing table using the \texttt{route} Unix utility, with a simple Python script that logs the time when we detect that the route corresponding to node \texttt{n1} has either appeared or disappeared from the table, respective to the link being up or down. We can then analyse the data to determine the time between the link changing state, and each node detecting this change and modifying its routing table accordingly.
+We monitor each node's routing table using the \texttt{route} Unix utility, the output of which is shown in Listing~\ref{route_command}, with a simple Python script that logs the time when we detect that the route corresponding to node \texttt{n1} has either appeared or disappeared from the table, respective to the link being up or down. We can then analyse the data to determine the time between the link changing state, and each node detecting this change and modifying its routing table accordingly.
+
+\begin{lstlisting}[label=route_command, caption=Example routing table of virtualised node, frame=tb]
+ben@ben-laptop:~/dtlsr/tools$ python3 vcmd.py n1 route -n
+Kernel IP routing table
+Destination Gateway  Genmask       Flags Metric Ref Use Iface
+0.0.0.0     10.0.1.1 0.0.0.0       UG    0      0     0 eth0
+10.0.1.0    10.0.1.2 255.255.255.0 UG    0      0     0 eth0
+10.0.1.0    0.0.0.0  255.255.255.0 U     0      0     0 eth0
+10.0.2.0    10.0.2.3 255.255.255.0 UG    0      0     0 eth1
+10.0.2.0    0.0.0.0  255.255.255.0 U     0      0     0 eth1
+10.0.3.0    10.0.3.5 255.255.255.0 UG    0      0     0 eth2
+10.0.3.0    0.0.0.0  255.255.255.0 U     0      0     0 eth2
+\end{lstlisting}
 
 We do convergence testing with link delays of \SI{1}{\ms} and \SI{100}{\ms}. A link delay of \SI{100}{\ms} is large enough to verify that the convergence time depends on the hop count, from the propagation time, while a delay of \SI{1}{\ms} is what we use for the rest of the evaluation, so it is useful to include as a baseline.
 
@@ -643,15 +689,16 @@ In~\ref{fig:conv_1ms} we see that the zero-hop node \texttt{n2} has a `convergen
 
 Hop counts of 1 and above rely on the network-layer section of the protocol, with link-state information being sent from node to node. As LSAs are propagated as soon as they are received, we are bounded mainly by the link delay, which we can see in the difference between the higher hop counts of~\ref{fig:conv_1ms} and~\ref{fig:conv_100ms}. In~\ref{fig:conv_1ms} the delay is so small as for each subsequent hop to be indistinguishable from the last, but in~\ref{fig:conv_100ms} we see the delay increasing the convergence time for each hop cumulatively.
 
-\begin{figure}[H]
+\begin{figure}
 \centering
-\begin{subfigure}{.5\textwidth}
+\begin{subfigure}{.6\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{conv_1ms}
   \caption{Link delay of \SI{1}{\ms}}
   \label{fig:conv_1ms}
-\end{subfigure}%
-\begin{subfigure}{.5\textwidth}
+\end{subfigure}
+
+\begin{subfigure}{.6\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{conv_100ms}
   \caption{Link delay of \SI{100}{\ms}}
@@ -684,15 +731,16 @@ Firstly we have a topology with a single central connecting link, that we flap u
 	\label{fig:partition_topology}
 \end{minipage}
 
-\begin{figure}[H]
+\begin{figure}
 \centering
-\begin{subfigure}{.5\textwidth}
+\begin{subfigure}{.8\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{delay_partition_flap5}
   \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
   \label{fig:partition_5}
-\end{subfigure}%
-\begin{subfigure}{.5\textwidth}
+\end{subfigure}
+
+\begin{subfigure}{.8\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{delay_partition_flap20}
   \caption{Flapping with period $T=\SI{40}{\s}$ (\SI{20}{\s} up, \SI{20}{\s} down).}
@@ -712,9 +760,55 @@ This variability in delay can be undesirable, but it is not something that can b
 This network topology is consistent with those seen in remote regions even in developed countries, where there is a single main link being relied on. If that link becomes unreliable, then we have shown that using a delay-tolerant routing protocol greatly increases the proportion of packets delivered. One could imagine a situation where the link is only up for a small proportion of the total time, instead of half-and-half, in which case DTLSR would show an even greater advantage over LSR.
 
 
+\subsection{Full Partition Topology}
+
+Our second topology shown in Figure~\ref{fig:full_partition_topology} is similar to the above `partition' topology, but instead partitions the network with two links in sequence that have anti-correlated failures as shown in Figure~\ref{fig:full_partition_graph} --- when one is up, the other is down. Thus there is never any end-to-end connection and the network is technically always partitioned, but using the `store-and-forward' mechanism some packet delivery can be achieved. This is not as ridiculous a case as it may seem. If a region has unreliable or limited power, there may only be sufficient power to turn on a subset of the routers at a time, likely in an unpredictable pattern.
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{delay_full_partition_topology}
+  \caption{}
+  \label{fig:full_partition_topology}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{delay_full_partition_graph}
+  \caption{}
+  \label{fig:full_partition_graph}
+\end{subfigure}
+\caption{`Full partition' network topology with anti-correlated link failures.}
+\label{fig:full_partition}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\begin{subfigure}{.8\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{delay_full_partition_flap5}
+  \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
+  \label{fig:full_partition_flap5}
+\end{subfigure}
+
+\begin{subfigure}{.8\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{delay_full_partition_flap20}
+  \caption{Flapping with period $T=\SI{40}{\s}$ (\SI{20}{\s} up, \SI{20}{\s} down).}
+  \label{fig:full_partition_flap20}
+\end{subfigure}
+\caption{}
+\label{fig:full_partition_flap}
+\end{figure}
+
+We see in Figure~\ref{fig:full_partition_flap} that LSR achieves zero packet delivery, compared to DTLSR achieving upwards of 70\% percent overall. This is notably much more serious than the results above, where LSR achieved a lower but still greater-than-zero delivery, as retransmission-based transport protocols rely on the fact that there is \textit{some} packet delivery, where in the limit of time with retransmissions the probability of delivery approaches 1. However with zero delivery, this limit stays at zero and thus our unreliable network cannot be made reliable with a transport layer protocol. We rely entirely on the routing layer's buffering to achieve any communication whatsoever.
+
+As we increase the flapping period, thus reducing the frequency of boundary events, we again see in Figures~\ref{fig:full_partition_flap5} and \ref{fig:full_partition_flap20} that the packet delivery rate increases. However it is not as large of an increase as seen in the other topologies.
+
+
 \subsection{Box Topology}
 
-Our second topology is a `box'-shaped one, where we have a low-delay main route and a higher delay backup route when the main one goes down. In this example \texttt{n3-n4} is the main link that we flap, and \texttt{n3-n5-n6-n4} is our higher-delay backup route. Every link has \SI{1}{\ms} of delay. Thus from \texttt{n1} to \texttt{n2}, our main route has a delay of \SI{3}{\ms} and our backup route has a delay of \SI{5}{\ms}.
+Our third topology shown in Figure~\ref{fig:box} is a `box'-shaped one, where we have a low-delay main route and a higher delay backup route when the main one goes down. In this example \texttt{n3-n4} is the main link that we flap, and \texttt{n3-n5-n6-n4} is our higher-delay backup route. Every link has \SI{1}{\ms} of delay. Thus from \texttt{n1} to \texttt{n2}, our main route has a delay of \SI{3}{\ms} and our backup route has a delay of \SI{5}{\ms}.
 
 \begin{minipage}{1\textwidth} \centering
 	\includegraphics[width=0.5\textwidth]{delay_box_topology}
@@ -739,17 +833,16 @@ Our second topology is a `box'-shaped one, where we have a low-delay main route 
 %\label{fig:box}
 %\end{figure}
 
-\pagebreak
-
-%------------------------------------------
-\begin{wrapfigure}{r}{9.7cm}
-\begin{subfigure}{9.7cm}
+\begin{figure}
+\centering
+\begin{subfigure}{0.8\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{delay_box_flap5}
   \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
   \label{fig:box_5}
 \end{subfigure}
-\begin{subfigure}{9.7cm}
+
+\begin{subfigure}{0.8\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{delay_box_flap10}
   \caption{Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down).}
@@ -757,42 +850,13 @@ Our second topology is a `box'-shaped one, where we have a low-delay main route 
 \end{subfigure}
 \caption{Cumulative distributions of end-to-end delay between \texttt{n1} and \texttt{n2} under different routing algorithms, while flapping link \texttt{n3-n4}.}
 \label{fig:box}
-\end{wrapfigure}
-%------------------------------------------
+\end{figure}
 
 We see in both cases that LSR successfully switches to the backup link whenever the main link goes down, shown by a large proportion of packets having an RTT of approximately \SI{10}{\ms}. As described above, it takes time for the protocol to detect that the link is down and to respond by modifying the routing table, which causes packet losses. Increasing the flapping frequency increases the number of these boundary periods, thus increasing the proportion of time dropping packets. This is reflected in the higher proportion of packets being dropped with a shorter flapping period for LSR.
 
 We again see that DTLSR achieves a higher proportion of delivered packets than LSR. While it is a lot closer than in the partition topology, there is still a marked difference. DTLSR does not choose to switch to the backup link, and instead continues buffering packets waiting for the main link to come back up. It is interesting to compare LSR and DTLSR in these periods where the main link is down. LSR achieves a much lower delay than DTLSR by switching to the backup link, but DTLSR delivers those packets much more reliably. The choice here likely depends on what applications the user wants to run over the network. For applications with strict low-latency requirements like video conferencing software, LSR is likely better, but for applications that want reliable transfer with minimal retransmissions like bulk file transfers, DTLSR is the better choice.
 
 As stated above this kind of topology is uncommon in remote and developing regions due to the cost of adding backup links. However it is useful to contrast LSR and DTLSR in other environments to see fully their strengths and weaknesses.
-
-
-\subsection{Full Partition Topology}
-
-Our third topology is similar to the above `partition' topology, but instead partitions the network with two links in sequence that have anti-correlated failures (When one is up, the other is down). Thus there is never any end-to-end connection and the network is technically always partitioned, but using the `store-and-forward' mechanism some packet delivery can be achieved. This is not as ridiculous a case as it may seem. If a region has unreliable or limited power, there may only be power to turn on a subset of the routers at a time, likely in an unpredictable pattern.
-
-\begin{figure}[H]
-\centering
-\begin{subfigure}{.5\textwidth}
-  \centering
-  \includegraphics[width=1\linewidth]{delay_full_partition_topology}
-  \label{fig:full_partition_topology}
-\end{subfigure}%
-\begin{subfigure}{.5\textwidth}
-  \centering
-  \includegraphics[width=1\linewidth]{delay_full_partition_graph}
-  \label{fig:full_partition_graph}
-\end{subfigure}
-\caption{`Full partition' network topology with anti-correlated link failures.}
-\label{fig:full_partition}
-\end{figure}
-
-\begin{minipage}{1\textwidth} \centering
-	\includegraphics[width=0.75\textwidth]{delay_full_partition_flap5}
-	\captionof{figure}{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
-\end{minipage}
-
-We see that LSR achieves zero packet delivery, compared to DTLSR achieving x percent overall. This is notably much more serious than the results above, where LSR achieved a lower but still greater-than-zero delivery, as retransmission-based transport protocols rely on the fact that there is \textit{some} packet delivery, where in the limit of time with retransmissions the probability of delivery approaches 1. However with zero delivery, this limit stays at zero and thus our unreliable network cannot be made reliable with a transport layer protocol. We rely entirely on the routing layer's buffering to achieve any communication whatsoever.
 
 \section{TCP in Variable-Delay Contexts}
 
