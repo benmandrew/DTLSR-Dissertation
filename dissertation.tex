@@ -536,7 +536,7 @@ typedef struct local_node {
 
 \subsection{Route Generation}
 
-We generate routes from the link-state graph, computing shortest paths from ourself to every other node using Dijkstra's algorithm. From each shortest path we get the next-hop node, which we add to the routing table along with the destination IP subnet so that the router knows where to forward incoming packets. Along with adding new routes we also delete old stale routes, which have either been made obselete by a new, better route, or do not exist anymore due to failure.
+We generate routes from the link-state graph, computing shortest paths from ourself to every other node using Dijkstra's algorithm. From each shortest path we get the next-hop node, which we add to the routing table along with the destination IP subnet so that the router knows where to forward incoming packets. Along with adding new routes we also delete old stale routes, which have either been made obsolete by a new, better route, or do not exist anymore due to failure.
 
 Dijkstra's algorithm computes paths on a weighted graph, allowing us to choose a metric to judge links against each other. Traditional OSPF uses a bandwidth-based metric, but I chose to use the number of hops in the path instead, as delay is more important than throughput in delay-tolerant networks.
 
@@ -741,7 +741,7 @@ The main body of the evaluation is comparing the distribution of end-to-end pack
 We want to evaluate with UDP to minimise any interference that the transport layer may have on testing. We approximate UDP with the Unix \texttt{ping} utility, which despite using ICMP emulates the behaviour of UDP well at higher throughputs, similarly having no flow and congestion control mechanisms. We take the `delay' of a packet as being the round-trip time as computed by \texttt{ping}.
 
 % JCW: refer to figure in the first sentence of this paragraph
-We plot the distribution of delays as a logarithmic CDF plot with the y-axis signifying the proportion of packets. When the line goes off the edge of the graph on the right without reaching 1.0 on the y-axis, it shows that the remaining proportion of packets was dropped. I don't include retransmissions as this is a transport-layer responsibility.
+We plot the distribution of delays as a logarithmic CDF plot with the y-axis signifying the proportion of packets, for example shown in Figure~\ref{fig:partition}. When the line goes off the edge of the graph on the right without reaching 1.0 on the y-axis, it shows that the remaining proportion of packets was dropped. I don't include retransmissions as this is a transport-layer responsibility.
 
 % JCW: even this could do with something to break up the length -- see the \paragraph{ } tags maybe?
 \subsection{Partial Partition Topology}
