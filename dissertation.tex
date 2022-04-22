@@ -386,7 +386,9 @@ The concepts and algorithms required for the dissertation were mostly covered in
 % JCW : Can we start with something more exciting?  E.g. a brief overview of what you've implemented?
 % I think 2 paragraphs explaining what you've implemented would go very well here --- and help the reader navigate this section.
 
-We have implemented two routing protocols, \texttt{LSR} and \texttt{DTLSR}...
+We have implemented two routing protocols, \texttt{LSR} and \texttt{DTLSR}. These are each composed of link-layer systems for detecting link failure and links coming back up, integration of this information into an internal graph representation of the network, and a network-layer mechanism for propagating this information over the entire network.
+
+Also implemented is a way for each router to use this information to generate shortest paths to every other node, aggregating this information to modify the routing table accordingly. Significant effort was put into the delay-tolerant modifications in \texttt{DTLSR}, with a local packet buffering system for link-failure tolerance, and a sophisticated metric for comparing the reliability of links.
 
 \section{Repository Overview}
 \begin{minipage}{1\textwidth} \centering
@@ -412,7 +414,7 @@ dtlsr                        Root
 
 \begin{itemize}
 	\item
-	\texttt{algorithm} contains pure algorithms and data structures, for example graph, graph searching, and heap implementations.
+	\texttt{algorithm} contains pure algorithms and data structures, for example the graph representation, pathfinding, and heap implementations.
 
 	\item
 	\texttt{network} contains functionality for socket manipulation, sending data over the network, and packet listening/replay.
@@ -656,7 +658,7 @@ We then do a full comparison of the delay of packet arrivals in LSR and DTLSR in
 
 The convergence time of the link-state protocol, is the time between the state of the graph updating (e.g. a link going down), and that change being detected and incorporated into the routing table of a particular node in the network. As changes are propagated from node-to-node, we expect that convergence time increases as we look at nodes further from the changing link. We will distinguish the convergence time in response to links going down, and links coming back up, as these are detected in different ways. 
 
-Our testing topology is a long chain of routers, shown in Figure~\ref{fig:conv_topology}, with the flapping link at one end and the update messages being propagated down the chain. This gives us a way to detect how long it takes a node to detect the change for each number of router `hops'. We consider the zero-hop node \texttt{n2} to be that directly attached to the flapping link.
+Our testing topology is a long chain of routers, shown in Figure~\ref{fig:conv_topology}, with the flapping link at one end and the update messages being propagated down the chain. This gives us a way to detect how long it takes a node to detect the change for each number of router `hops'.
 
 \begin{minipage}{1\textwidth} \centering
 	\includegraphics[width=0.7\textwidth]{conv_topology}
@@ -673,42 +675,41 @@ ben@ben-laptop:~/dtlsr/tools$ python3 vcmd.py n1 route -n
 Kernel IP routing table
 Destination Gateway  Genmask       Flags Metric Ref Use Iface
 0.0.0.0     10.0.1.1 0.0.0.0       UG    0      0     0 eth0
-10.0.1.0    10.0.1.2 255.255.255.0 UG    0      0     0 eth0
+10.0.1.0    10.0.1.2 255.255.255.0 UG    1      0     0 eth0
 10.0.1.0    0.0.0.0  255.255.255.0 U     0      0     0 eth0
-10.0.2.0    10.0.2.3 255.255.255.0 UG    0      0     0 eth1
+10.0.2.0    10.0.2.3 255.255.255.0 UG    1      0     0 eth1
 10.0.2.0    0.0.0.0  255.255.255.0 U     0      0     0 eth1
-10.0.3.0    10.0.3.5 255.255.255.0 UG    0      0     0 eth2
+10.0.3.0    10.0.3.5 255.255.255.0 UG    1      0     0 eth2
 10.0.3.0    0.0.0.0  255.255.255.0 U     0      0     0 eth2
 \end{lstlisting}
 
-We do convergence testing with link delays of \SI{1}{\ms} and \SI{100}{\ms}. A link delay of \SI{100}{\ms} is large enough to verify that the convergence time depends on the hop count, from the propagation time, while a delay of \SI{1}{\ms} is what we use for the rest of the evaluation, so it is useful to include as a baseline.
+We do convergence testing with link delays of \SI{1}{\ms} and \SI{100}{\ms}. A link delay of \SI{100}{\ms} is large enough to verify that the convergence time depends on the hop count, from the propagation time, while a delay of \SI{1}{\ms} is what we use for the rest of the evaluation, so it is useful to include as a baseline.  Heartbeats are sent every \SI{200}{\ms}, and the heartbeat timeout is set to \SI{900}{\ms}.
 
 \subsection{Results}
 
-In~\ref{fig:conv_1ms} we see that the zero-hop node \texttt{n2} has a `convergence' time greatly less than the rest of the nodes, which is because \texttt{n2} detects the change using the link-layer heartbeat section of the protocol. For the link being down our detection depends on a heartbeat timeout after not receiving a heartbeat. For being up our detection depends on receiving a heartbeat from our neighbour. We justify the time difference between up and down with the fact that the heartbeat timeout must necessarily be longer than the heartbeat sending period.
+In the graph we see the time between the event occurring and it being detected by the router, depending on the number of hops from the event. We consider the zero-hop node to be that directly attached to the flapping link. In both Figure~\ref{fig:conv_1ms} and \ref{fig:conv_100ms} we see a marked difference between the detection time of the UP and DOWN events, where detection of the link coming up happens much faster than detecting it has failed. This is due to the way these are detected at a link-level, with the former being actively detected by a heartbeat and the latter being passively detected by a timeout. It is then clear that these rely heavily on the particular constants chosen for the heartbeat sending period and the amount of time required for a timeout.
 
-Hop counts of 1 and above rely on the network-layer section of the protocol, with link-state information being sent from node to node. As LSAs are propagated as soon as they are received, we are bounded mainly by the link delay, which we can see in the difference between the higher hop counts of~\ref{fig:conv_1ms} and~\ref{fig:conv_100ms}. In~\ref{fig:conv_1ms} the delay is so small as for each subsequent hop to be indistinguishable from the last, but in~\ref{fig:conv_100ms} we see the delay increasing the convergence time for each hop cumulatively.
+Hop counts of 1 and above rely on the network-layer section of the protocol, with link-state information being sent from node to node. As LSAs are propagated as soon as they are received, we are bounded mainly by the link delay, which we can see in the difference between the higher hop counts of~\ref{fig:conv_1ms} and~\ref{fig:conv_100ms}. In~\ref{fig:conv_1ms} the delay is so small as for each subsequent hop to be almost indistinguishable from the last, but in~\ref{fig:conv_100ms} we see the delay increasing the convergence time for each hop cumulatively, for both UP and DOWN events.
+
+It is interesting to note that subsequent hops depend on the cumulative time added by all previous hops, due to propagation. As the difference between up and down remains close-to constant after the zero-hop node, we can conclude that the network-layer behaviour is the same for up and down, explained by them both depending on the same LSA propagation system.
 
 \begin{figure}
 \centering
-\begin{subfigure}{.6\textwidth}
+\begin{subfigure}{.5\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{conv_1ms}
   \caption{Link delay of \SI{1}{\ms}}
   \label{fig:conv_1ms}
-\end{subfigure}
-
-\begin{subfigure}{.6\textwidth}
+\end{subfigure}%
+\begin{subfigure}{.5\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{conv_100ms}
   \caption{Link delay of \SI{100}{\ms}}
   \label{fig:conv_100ms}
 \end{subfigure}
-\caption{Protocol convergence times, for both the link going down, and the link coming back up. Error bars are the interquartile range.}
+\caption{Protocol convergence times, for both the link going down, and the link coming back up. Error bars are the standard deviation.}
 \label{fig:conv}
 \end{figure}
-
-It is interesting to note that subsequent hops depend on the cumulative time added by all previous hops, due to propagation. As the difference between up and down remains constant after the zero-hop node, we can conclude that the network-layer behaviour is the same for up and down.
 
 
 \section{Delay}
