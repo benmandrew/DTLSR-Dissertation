@@ -581,13 +581,13 @@ An interesting implementation detail is that we must also add this route to the 
 
 A downside to this is that incoming packets will be sent out of the interface onto the down link, deleting them. As we are buffering these packets as well, when the link comes back up there is a small chance of packet duplication, detailed in Figure~\ref{fig:packet_duplication}, however for testing purposes this is not an issue. To resolve this in a full implementation one would have to modify the behaviour of ICMP in the kernel, as well as potentially other network-layer protocols that have similar behaviour. I wanted to remain in userspace for ease of implementation, so as it has no effect on my evaluation I left it be.
 
-\begin{center}
-\begin{minipage}{0.9\textwidth} \centering
-	\includegraphics[width=0.8\textwidth]{packet_duplication}
-	\captionof{figure}{Packet duplication is caused by us continuing to buffer packets that are being successfully forwarded on, as we have not yet detected that the link has come up. All packets received in the shown time interval are duplicated.}
-	\label{fig:packet_duplication}
-\end{minipage}
-\end{center}
+%\begin{center}
+%\begin{minipage}{0.9\textwidth} \centering
+%	\includegraphics[width=0.8\textwidth]{packet_duplication}
+%	\captionof{figure}{Packet duplication is caused by us continuing to buffer packets that are being successfully forwarded on, as we have not yet detected that the link has come up. All packets received in the shown time interval are duplicated.}
+%	\label{fig:packet_duplication}
+%\end{minipage}
+%\end{center}
 
 % JCW: we've switched to we -- that's ok just be consistent
 % JCW: careful with this para --- being aware of bugs is good, but no need to advertise yourself as incomplete -- I think this one is good, becaause the bug is interesting --- but I think you should perhaps talk about the benefits of such a fix (e.g. decrease drop rate by X%)
@@ -708,14 +708,6 @@ Destination Gateway  Genmask       Flags Metric Ref Use Iface
 
 We do convergence testing with link delays of \SI{1}{\ms} and \SI{100}{\ms}. A link delay of \SI{100}{\ms} is large enough to verify that the convergence time depends on the hop count, from the propagation time, while a delay of \SI{1}{\ms} is what we use for the rest of the evaluation, so it is useful to include as a baseline.  Heartbeats are sent every \SI{200}{\ms}, and the heartbeat timeout is set to \SI{900}{\ms}.
 
-\subsection{Results}
-
-In the graph we see the time between the event occurring and it being detected by the router, depending on the number of hops from the event. We consider the zero-hop node to be that directly attached to the flapping link. In both Figure~\ref{fig:conv_1ms} and \ref{fig:conv_100ms} we see a marked difference between the detection time of the UP and DOWN events, where detection of the link coming up happens much faster than detecting it has failed. This is due to the way these are detected at a link-level, with the former being actively detected by a heartbeat and the latter being passively detected by a timeout. It is then clear that these rely heavily on the particular constants chosen for the heartbeat sending period and the amount of time required for a timeout.
-
-Hop counts of 1 and above rely on the network-layer section of the protocol, with link-state information being sent from node to node. As LSAs are propagated as soon as they are received, we are bounded mainly by the link delay, which we can see in the difference between the higher hop counts of~\ref{fig:conv_1ms} and~\ref{fig:conv_100ms}. In~\ref{fig:conv_1ms} the delay is so small as for each subsequent hop to be almost indistinguishable from the last, but in~\ref{fig:conv_100ms} we see the delay increasing the convergence time for each hop cumulatively, for both UP and DOWN events.
-
-It is interesting to note that subsequent hops depend on the cumulative time added by all previous hops, due to propagation. As the difference between up and down remains close-to constant after the zero-hop node, we can conclude that the network-layer behaviour is the same for up and down, explained by them both depending on the same LSA propagation system.
-
 \begin{figure}
 \centering
 \begin{subfigure}{.5\textwidth}
@@ -734,20 +726,34 @@ It is interesting to note that subsequent hops depend on the cumulative time add
 \label{fig:conv}
 \end{figure}
 
+\subsection{Results}
+
+In the graphs in Figure~\ref{fig:conv} we see the time between the event occurring and it being detected by the router, depending on the number of hops from the event. We consider the zero-hop node to be that directly attached to the flapping link. In both Figure~\ref{fig:conv_1ms} and \ref{fig:conv_100ms} we see a marked difference between the detection time of the UP and DOWN events, where detection of the link coming up happens much faster than detecting it has failed. This is due to the way these are detected at a link-level, with the former being actively detected by a heartbeat and the latter being passively detected by a timeout. It is then clear that these rely heavily on the particular constants chosen for the heartbeat sending period and the amount of time required for a timeout.
+
+Hop counts of 1 and above rely on the network-layer section of the protocol, with link-state information being sent from node to node. As LSAs are propagated as soon as they are received, we are bounded mainly by the link delay, which we can see in the difference between the higher hop counts of~\ref{fig:conv_1ms} and~\ref{fig:conv_100ms}. In~\ref{fig:conv_1ms} the delay is so small as for each subsequent hop to be almost indistinguishable from the last, but in~\ref{fig:conv_100ms} we see the delay increasing the convergence time for each hop cumulatively, for both UP and DOWN events.
+
+It is interesting to note that subsequent hops depend on the cumulative time added by all previous hops, due to propagation. As the difference between up and down remains close-to constant after the zero-hop node, we can conclude that the network-layer behaviour is the same for up and down, explained by them both depending on the same LSA propagation system.
+
 
 \section{Delay}
 
-The main body of the evaluation is comparing the distribution of end-to-end packet delays for LSR and DTLSR in a number of different network environments, varying topology and failure mode. This demonstrates the different properties of the routing algorithms, showing advantages and disadvantages of both.
+The main body of the evaluation is comparing the distribution of round-trip packet delays for LSR and DTLSR in a number of different network environments, varying topology and failure mode. This demonstrates the different properties of the routing algorithms, showing advantages and disadvantages of both.
 
 We want to evaluate with UDP to minimise any interference that the transport layer may have on testing. We approximate UDP with the Unix \texttt{ping} utility, which despite using ICMP emulates the behaviour of UDP well at higher throughputs, similarly having no flow and congestion control mechanisms. We take the `delay' of a packet as being the round-trip time as computed by \texttt{ping}.
+
+%\begin{lstlisting}[label=route_command, caption=Command-line call used to test delay, frame=tb]
+%ping 10.0.x.x -i0.1 -D
+%\end{lstlisting}
 
 % JCW: refer to figure in the first sentence of this paragraph
 We plot the distribution of delays as a logarithmic CDF plot with the y-axis signifying the proportion of packets, for example shown in Figure~\ref{fig:partition}. When the line goes off the edge of the graph on the right without reaching 1.0 on the y-axis, it shows that the remaining proportion of packets was dropped. I don't include retransmissions as this is a transport-layer responsibility.
 
+Unless specified otherwise, all links have a delay of \SI{1}{\ms}.
+
 % JCW: even this could do with something to break up the length -- see the \paragraph{ } tags maybe?
 \subsection{Partial Partition Topology}
 
-Firstly we have a topology with a single central connecting link, that we flap up and down. When the link is down it creates a network partition. In this example we flap link \texttt{n1-n2}. Every link has \SI{1}{\ms} of delay.
+Firstly we have a topology with a single central connecting link, \texttt{n1-n2}, that we periodically alternate being up or down; we say that the link is `\textbf{flapping}'. Of note in this topology is that when the link is down it creates a network partition between node subsets \texttt{(n1,n3,n5)} and \texttt{(n2,n4,n6)}.
 
 \begin{minipage}{1\textwidth} \centering
 	\includegraphics[width=0.5\textwidth]{delay_partition_topology}
@@ -759,26 +765,36 @@ Firstly we have a topology with a single central connecting link, that we flap u
 \centering
 \begin{subfigure}{.8\textwidth}
   \centering
-  \includegraphics[width=1\linewidth]{delay_partition_flap5}
-  \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
-  \label{fig:partition_5}
-\end{subfigure}
-
-\begin{subfigure}{.8\textwidth}
-  \centering
   \includegraphics[width=1\linewidth]{delay_partition_flap20}
   \caption{Flapping with period $T=\SI{40}{\s}$ (\SI{20}{\s} up, \SI{20}{\s} down).}
   \label{fig:partition_20}
 \end{subfigure}
+
+\begin{subfigure}{.8\textwidth}
+  \centering
+  \includegraphics[width=1\linewidth]{delay_partition_flap2_20}
+  \caption{Flapping with period $T=\SI{22}{\s}$ (\SI{2}{\s} up, \SI{20}{\s} down).}
+  \label{fig:partition_2_20}
+\end{subfigure}
+
 \caption{Cumulative distributions of end-to-end delay between \texttt{n5} and \texttt{n6} under different routing algorithms, while flapping link \texttt{n1-n2}.}
 \label{fig:partition}
 \end{figure}
 
-We see in both cases that LSR successfully delivers approximately half of the packets, consistent with the fact that the network is partitioned for half of the time. DTLSR achieves a much higher delivery proportion in both cases due to packets being buffered at the router before the failed link, then forwarded on once the link comes back up. We also see that higher frequency flapping creates a higher drop rate overall for both protocols, which can be explained by considering that when a link goes down it takes time for the router to detect this change, in which time any incoming packets are sent out of the interface and are summarily deleted. It is only once the state change is detected that we change our routing tables or start buffering packets, for LSR and DTLSR respectively. The higher the flapping frequency, the higher proportion of time we spend in these `boundary' periods, and thus the more packets we drop for both LSR and DTLSR.
+The results are shown in Figure~\ref{fig:partition}. We see in both cases that LSR successfully delivers a proportion of packets approximately the same as that of the uptime proportion of the link, in Figure~\ref{fig:partition_20} it is up half of the time so we get 50\% delivery, and in Figure~\ref{fig:partition_2_20} it is up one tenth of the time so we get a 9\% delivery rate. We can attribute the 1\% discrepancy to packet drops that will be explained below. DTLSR achieves a drastically higher delivery ratio in both cases due to packets being buffered at the router before the failure, then forwarded on when it comes back up.
 
-For DTLSR we have the short delay of \SI{6}{\ms} for approximately half of the packets, and for the other half the delay increases linearly (showing as an exponential curve in the $\log x$-$y$ graph). The first half is due to the link being up half of the time, so all packets sent in this period take approximately the same time to arrive. The second half is a little more subtle, and is due to the packet replaying behaviour. \texttt{ping} sends packets at a constant interval but the buffered packets are replayed all at once when the link comes back up, thus the earlier that a ping is sent in the link-down period, the greater time delay there will be between the client sending the packet and receiving a reply.
+In both plots the packets can be split into two groups. For the first group both LSR and DTLSR have a constant delay of \SI{6}{\ms}. For LSR the second group of packets are dropped, whereas for DTLSR their delay increases linearly (showing as an exponential curve in the $\log x$-$y$ graph). The first group is due to the link being up the described proportion of the time of the time, so all packets sent in this period take approximately the same time to arrive, taking a round-trip journey over three links (\texttt{n5-n1-n2-n6}) each of \SI{1}{\ms} delay. The second group is a little more subtle, and is due to the packet buffering and replaying behaviour. \texttt{ping} sends packets at a constant interval but the buffered packets are replayed all at once when the link comes back up, thus the earlier that a ping is sent in the link-down period, the greater time delay there will be between the client sending the packet and receiving a reply.
 
 This variability in delay can be undesirable, but it is not something that can be fixed as partitioning is a fundamental property of the network that we can't work around. Even a perfect retransmission protocol would run into the same variability issue, retransmitting all of the dropped packets as soon as the link came back up. Users of the network should take this into account with the applications that they decide to run on it, and ensure that there are not strict low-latency requirements with applications like video conferencing or real-time games.
+
+\begin{figure}
+  \centering
+  \includegraphics[width=0.8\linewidth]{delay_partition_flap5}
+  \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
+  \label{fig:partition_5}
+\end{figure}
+
+Comparing Figures~\ref{fig:partition_5} and \ref{fig:partition_20}, we see that increasing the flapping frequency creates a higher drop rate overall for both protocols, which can be explained by considering that when a link goes down it takes time for the router to detect this change, in which time any incoming packets are sent out of the interface and are summarily deleted. It is only once the state change is detected that we change our routing tables or start buffering packets, for LSR and DTLSR respectively. The higher the flapping frequency, the higher proportion of time we spend in these `boundary' periods, and thus the more packets we drop for both LSR and DTLSR.
 
 % good --- this should be in a more prominent location --- I would start with this at the begininf of the section ---e.g. toplogy descriptionn, motivation, results, exlanation of features?
 This network topology is consistent with those seen in remote regions even in developed countries, where there is a single main link being relied on. If that link becomes unreliable, then we have shown that using a delay-tolerant routing protocol greatly increases the proportion of packets delivered. One could imagine a situation where the link is only up for a small proportion of the total time, instead of half-and-half, in which case DTLSR would show an even greater advantage over LSR.
@@ -829,13 +845,15 @@ We see in Figure~\ref{fig:full_partition_flap} that LSR achieves zero packet del
 
 As we increase the flapping period, thus reducing the frequency of boundary events, we again see in Figures~\ref{fig:full_partition_flap5} and \ref{fig:full_partition_flap20} that the packet delivery rate increases. However it is not as large of an increase as seen in the other topologies.
 
+It's interesting to note that we also see an approximately proportional increase in the packet delay as we increase the flapping period, with packets having a delay around four times as large with $T=40$ than $T=10$. This is because packets are spending the vast majority of their time waiting for the link to come back up. It is a similar phenomenon to driving down a long road with traffic lights in series; if the lights are anti-correlated then you will be stopped at each in turn, and your progress down the road will depend almost entirely on the switching frequency of the lights.
+
 
 \subsection{Box Topology}
 
-Our third topology shown in Figure~\ref{fig:box} is a `box'-shaped one, where we have a low-delay main route and a higher delay backup route when the main one goes down. In this example \texttt{n3-n4} is the main link that we flap, and \texttt{n3-n5-n6-n4} is our higher-delay backup route. Every link has \SI{1}{\ms} of delay. Thus from \texttt{n1} to \texttt{n2}, our main route has a delay of \SI{3}{\ms} and our backup route has a delay of \SI{5}{\ms}.
+Our third topology shown in Figure~\ref{fig:box} is a `box'-shaped one, where we have a low-delay main route and a higher delay backup route when the main one goes down. In this example \texttt{n3-n4} is the main link that we flap, and \texttt{n3-n5-n6-n4} is our higher-delay backup route. The backup link \texttt{n5-n6} has a delay of \SI{10}{\ms}. Thus from \texttt{n1} to \texttt{n2}, our main route has a round-trip delay of \SI{6}{\ms} and our backup route has a round-trip delay of \SI{28}{\ms}.
 
 \begin{minipage}{1\textwidth} \centering
-	\includegraphics[width=0.5\textwidth]{delay_box_topology}
+	\includegraphics[width=0.6\textwidth]{delay_box_topology}
 	\captionof{figure}{`Box' network topology.}
 \end{minipage}
 
@@ -861,26 +879,26 @@ Our third topology shown in Figure~\ref{fig:box} is a `box'-shaped one, where we
 \centering
 \begin{subfigure}{0.8\textwidth}
   \centering
+  \includegraphics[width=1\linewidth]{delay_box_flap2}
+  \caption{Flapping with period $T=\SI{4}{\s}$ (\SI{2}{\s} up, \SI{2}{\s} down).}
+  \label{fig:box_20}
+\end{subfigure}
+\centering
+\begin{subfigure}{0.8\textwidth}
+  \centering
   \includegraphics[width=1\linewidth]{delay_box_flap5}
   \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
   \label{fig:box_5}
-\end{subfigure}
-
-\begin{subfigure}{0.8\textwidth}
-  \centering
-  \includegraphics[width=1\linewidth]{delay_box_flap10}
-  \caption{Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down).}
-  \label{fig:box_20}
 \end{subfigure}
 \caption{Cumulative distributions of end-to-end delay between \texttt{n1} and \texttt{n2} under different routing algorithms, while flapping link \texttt{n3-n4}.}
 \label{fig:box}
 \end{figure}
 
-We see in both cases that LSR successfully switches to the backup link whenever the main link goes down, shown by a large proportion of packets having an RTT of approximately \SI{10}{\ms}. As described above, it takes time for the protocol to detect that the link is down and to respond by modifying the routing table, which causes packet losses. Increasing the flapping frequency increases the number of these boundary periods, thus increasing the proportion of time dropping packets. This is reflected in the higher proportion of packets being dropped with a shorter flapping period for LSR.
+We see in both cases that LSR successfully switches to the backup link whenever the main link goes down, shown by a large proportion of packets having an RTT of approximately \SI{28}{\ms}. As described above, it takes time for the protocol to detect that the link is down and to respond by modifying the routing table, which causes packet losses. Increasing the flapping frequency increases the number of these boundary periods, thus increasing the proportion of time dropping packets. This is reflected in the higher proportion of packets being dropped with a shorter flapping period for LSR.
 
-We again see that DTLSR achieves a higher proportion of delivered packets than LSR. While it is a lot closer than in the partition topology, there is still a marked difference. DTLSR does not choose to switch to the backup link, and instead continues buffering packets waiting for the main link to come back up. It is interesting to compare LSR and DTLSR in these periods where the main link is down. LSR achieves a much lower delay than DTLSR by switching to the backup link, but DTLSR delivers those packets much more reliably. The choice here likely depends on what applications the user wants to run over the network. For applications with strict low-latency requirements like video conferencing software, LSR is likely better, but for applications that want reliable transfer with minimal retransmissions like bulk file transfers, DTLSR is the better choice.
+We again see that DTLSR achieves a higher proportion of delivered packets than LSR. While it is a lot closer than in the partition topology, there is still a marked difference. DTLSR uses its metric to judge the failed link in comparison to the backup link, switching onto it as shown by DTLSR also having a large portion of packets having a delay of around \SI{28}{\ms}. DTLSR is slightly slower to switch the route due to the metrics hysteresis, shown by LSR having a slightly higher proportion of packets with \SI{28}{\ms}. However DTLSR ends up with a higher delivery rate overall due to the packet buffering, shown on the top right of each of the graphs.
 
-As stated above this kind of topology is uncommon in remote and developing regions due to the cost of adding backup links. However it is useful to contrast LSR and DTLSR in other environments to see fully their strengths and weaknesses.
+As stated above this kind of topology is uncommon in remote and developing regions due to the cost of adding backup links. However it is useful to contrast LSR and DTLSR and show that even with other hardware solutions to failure, DTLSR still has a competitive advantage over LSR in delivery rate.
 
 \section{TCP in Variable-Delay Contexts}
 
@@ -888,6 +906,11 @@ TCP fundamentally does not work well in a variable-delay environment. It works b
 
 When the network delay has high variability the assumptions made by TCP break down. As a result, we focus on evaluating lossy protocols in the style of UDP.
 
+\section{Summary}
+
+This chapter shows that DTLSR is an effective protocol for improving the delay and packet delivery in an unreliable network environment.
+
+In particular, DTLSR has a strong advantage over LSR in maximising packet delivery in sparsely connected, unreliable networks, especially when link failures cause network partitions. Even when backup links exist, DTLSR is shown to reduce the drop rate of packets by around half compared to LSR. DTLSRs largest advantage is shown in networks with correlated link failures leading to no end-to-end connection, providing a delivery rate upwards of 70\% compared to LSR providing no communication whatsoever.
 
 \chapter{Conclusion}
 % JCW -- you need to find some headline figures --- 1/2 numbers that summarise your evaluation --- those can be reapted in the intro, abstract and here. (and obvs also your evaluation.)
