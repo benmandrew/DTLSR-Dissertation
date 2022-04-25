@@ -155,7 +155,7 @@
 
 Despite the best efforts of network engineers, achieving reliable communications using traditional routing protocols is inefficient and impractical in many situations. In environments with low network-level reliability such as remote or developing regions, protocols like OSPF can have large packet drop rates, or even provide no end-to-end communication whatsoever. The retransmission costs required to fix this can place strain on already limited resources.
 
-This project aims to evaluate delay-tolerant modifications made to a link-state routing protocol for network environments with low reliability. It is motivated by similar conditions being seen in network infrastructure in remote developing regions, where issues such as unreliable power can cause severe and unpredictable drops in packet delivery. We see how modifications made to the routing protocol can reduce this.
+This project aims to evaluate delay-tolerant modifications made to a link-state routing protocol for network environments with low reliability. It is motivated by similar conditions being seen in network infrastructure in remote developing regions, where issues such as unreliable power can cause severe and unpredictable drops in packet delivery \cite{DEMMER2007}. We see how modifications made to the routing protocol can reduce this.
 
 % JCW --- this needs to be much longer.  I want more motivation in here --- why should I care about this?
 
@@ -171,7 +171,7 @@ This project aims to evaluate delay-tolerant modifications made to a link-state 
 \section{Background and Motivation}
 
 %JCW --should be more active -- s/one problem.../routing packets from one note to anohter on ... is challenging.
-A challenging problem in networking is that of routing packets from one side of the network to another, on a path hopping from node to node. A routing protocol describes how routers communicate with each other to distribute information about the topology of the network, in order for each router to choose optimal paths to other nodes, and thus make optimal local forwarding decisions for incoming packets. Link-state protocols are one of the two main classes of routing protocols, and aim for every router in the network to have a full view of the network topology. When a change occurs in the network that information is propagated outwards from router to router, with the change being incorporated into each router's internal representation of the network.
+A challenging problem in networking is that of routing packets from one side of the network to another, on a path hopping from node to node. A routing protocol describes how routers communicate with each other to distribute information about the topology of the network, in order for each router to choose optimal paths to other nodes, and thus make optimal local forwarding decisions for incoming packets. Link-state protocols \cite{LSR_PROTOCOL} are one of the two main classes of routing protocols, and aim for every router in the network to have a full view of the network topology. When a change occurs in the network that information is propagated outwards from router to router, with the change being incorporated into each router's internal representation of the network.
 
 % JCW: Good structure.
 Traditional routing protocols such as OSPF treat failures as final, making the assumption that the failed link will not come back up anytime soon. If alternate routes exist they route around the failure to maintain connectivity as much as possible. However if no alternate routes exist (i.e. the network has been partitioned) then no data can be sent at all, and all packets sent after the failure will be dropped.
@@ -184,7 +184,7 @@ However in environments such as developing regions with unreliable network infra
 %JCW: is 'One appraoch' your implemented approach?  If so say -- it's not clear to me why I should care about this otherwise.
 % If it is your approach we should draw more attention to it --- subsection here
 \section{Delay Tolerant Routing}
-We explore one approach to make traditional routing more `delay-tolerant'. We do this by allowing routing paths to be advertised through down links, and to use a `store-and-forward' mechanism for packet forwarding where if the link on the outgoing interface is down, any packets incoming to the router that would be forwarded out on that interface are buffered in-memory by the router, seen in Figure~\ref{fig:saf_down}. When the link comes back up, all of the buffered packets are sent out of the desired interface, seen in Figure~\ref{fig:saf_up}. This maintains end-to-end connectivity as much as possible and decreases the drop rate of packets dramatically.
+We explore one approach to make traditional routing more `delay-tolerant'. We do this by allowing routing paths to be advertised through down links, and to use a `store-and-forward' mechanism \cite{SAF} for packet forwarding where if the link on the outgoing interface is down, any packets incoming to the router that would be forwarded out on that interface are buffered in-memory by the router, seen in Figure~\ref{fig:saf_down}. When the link comes back up, all of the buffered packets are sent out of the desired interface, seen in Figure~\ref{fig:saf_up}. This maintains end-to-end connectivity as much as possible and decreases the drop rate of packets dramatically.
 
 We see this particularly in Figure~\ref{fig:pathalogical}, a pathalogical case where anti-correlated link failures mean that there is never an end-to-end connection. Traditional routing techniques will drop all packets, but a store-and-forward technique allows packets to actually be delivered.
 
@@ -234,18 +234,29 @@ When we consider multiple link failures occurring along a path at once, the tota
 
 \section{Objectives of the Project}
 
-This project compares the performance of a protocol using traditional link-state routing with a modified version implementing delay-tolerant features. To have control over the behaviour of the protocols both are implemented from scratch in C, with the design based off of the OSPF protocol. The evaluation focuses mainly on the drop rate of packets along with the delay of packet arrivals. We do the evaluation by running the protocols on an industry-grade network emulator that provides a realistic testing environment with full control over the network properties.
+This project compares the performance of a protocol using traditional link-state routing with a modified version implementing delay-tolerant features. To have control over the behaviour of the protocols both are implemented from scratch in C, with the design based off of the OSPF protocol \cite{OSPF}. The evaluation focuses mainly on the drop rate of packets along with the delay of packet arrivals. We do the evaluation by running the protocols on an industry-grade network emulator that provides a realistic testing environment with full control over the network properties.
 
 \subsection{Results}
 
-DTLSR greatly decreases the drop rate of packets over networks with frequent partitions. Even when a higher-delay backup link exists which LSR can switch onto, our evaluation shows that DTLSR still reduces the packet drop rate by at least half. We also experimentally show cases with multiple link failures where LSR achieves zero packet delivery, but DTLSR delivers more than 70\% of packets.
+\begin{minipage}{1\textwidth}
+
+DTLSR greatly decreases the drop rate of packets over networks with frequent partitions. We show an example in Figure~\ref{fig:partition_2_20}, a case where the network is partitioned 90\% of the time; DTLSR achieves more than 10 times the delivery rate of LSR. Even when a higher-delay backup link exists which LSR can switch onto, our evaluation shows that DTLSR still reduces the packet drop rate by at least half. We experimentally show cases with multiple link failures where LSR achieves zero packet delivery, but DTLSR delivers more than 70\% of packets. We also show that DTLSR has a large advantage over LSR when running under TCP, increasing the mean bitrate and drastically reducing the relative number of packet retransmissions.
+
+\begin{figure}[H]
+  \centering
+  \hspace*{2.4cm}
+  \includegraphics[width=0.8\linewidth]{delay_partition_flap2_20}
+  \repeatcaption{fig:partition_2_20}{Comparison of LSR and DTLSR delay and delivery rate}
+\end{figure}
+
+\end{minipage}
 
 \section{Related Work}
 
 % JCW cites needed  -- try adding 'survey' to your search terms because those shoudl cover most of the existing work within them.
 % jcw: note --- is for em dash, not -
 % OTherwsie excellent paragraph explaining why is is related but not usefu.
-There has been much research into `mobile ad-hoc networks' (MANETs), where mobile nodes physically move around and have intermittent and unpredictable connectivity with other nodes. This requires a dramatic change in network protocol design, but for our situation it is not necessary. Link failures in a mobile network are usually due to topology changes, but networks in developing regions have largely static topologies with modem or satellite links where link failures, mostly due to congestion or unreliable power, do not imply that the topology has changed. When the failure is resolved the topology will be the same as before, thus we are able to use a well-understood link-state paradigm with comparatively minor modifications, making deployment far easier and minimising wasted resources from unnecessary features.
+There has been much research into `mobile ad-hoc networks' (MANETs) \cite{ABOLHASAN2004}, where mobile nodes physically move around and have intermittent and unpredictable connectivity with other nodes. This requires a dramatic change in network protocol design, but for our situation it is not necessary. Link failures in a mobile network are usually due to topology changes, but networks in developing regions have largely static topologies with modem or satellite links where link failures, mostly due to congestion or unreliable power, do not imply that the topology has changed \cite{DEMMER2007}. When the failure is resolved the topology will be the same as before, thus we are able to use a well-understood link-state paradigm with comparatively minor modifications, making deployment far easier and minimising wasted resources from unnecessary features.
 
 
 
@@ -279,7 +290,7 @@ As shown in the evaluation packet buffering techniques do still have a small num
 
 \section{Common Open Research Emulator (CORE)}
 
-CORE is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces. It comes out of the US Naval Research Laboratory and was developed by Boeing Research and Technology. In Figure~\ref{fig:core_topology} we see an example topology in the CORE GUI, showing virtual routers and hosts along with their IP addresses. In Listing~\ref{core_filesystem} we see an example of a virtualised file-system of node \texttt{n1}; boot scripts and log files of the DTLSR and \texttt{heartbeat} (\texttt{hbt}) protocols are visible. Nodes communicate via virtualised interfaces, connected by bridges emulating physical links. We see an example of this in Listing~\ref{core_interfaces}.
+CORE \cite{CORE} is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces. It comes out of the U.S.\ Naval Research Laboratory and was developed by Boeing Research and Technology. In Figure~\ref{fig:core_topology} we see an example topology in the CORE GUI, showing virtual routers and hosts along with their IP addresses. In Listing~\ref{core_filesystem} we see an example of a virtualised file-system of node \texttt{n1}; boot scripts and log files of the DTLSR and \texttt{heartbeat} (\texttt{hbt}) protocols are visible. Nodes communicate via virtualised interfaces, connected by bridges emulating physical links. We see an example of this in Listing~\ref{core_interfaces}.
 
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
@@ -289,7 +300,7 @@ CORE is a network emulator that models nodes as lightweight Unix virtual machine
 \end{minipage}
 \end{center}
 
-Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network simple: in Figure~\ref{fig:core_topology} we could run \texttt{ping 10.0.5.10} from the node \texttt{n7}, sending pings between \texttt{n7} and \texttt{n6}.
+Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite \cite{QUAGGA}, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network simple: in Figure~\ref{fig:core_topology} we could run \texttt{ping 10.0.5.10} from the node \texttt{n7}, sending pings between \texttt{n7} and \texttt{n6}.
 
 Link properties such as delay and loss can be programmatically customised through the Python API. This aids greatly in evaluation, allowing us to simulate network partitions and other network events. In Figure~\ref{fig:core_topology} if we disabled link \texttt{n1-n2} the pings going between \texttt{n7} and \texttt{n6} would have to be rerouted through \texttt{n5} and \texttt{n4}.
 
@@ -375,7 +386,7 @@ We used \textbf{C} because of extensive previous experience in internships and t
 
 \paragraph{Libraries:}
 
-We used \textbf{libpcap} and its command-line equivalent \textbf{tcpdump} for buffering received packets and storing them on the router when the outgoing link was down. We used \textbf{tcpreplay} to send the packets buffered by the tools above out onto the outgoing link when it came back up.
+We used \textbf{libpcap} and its command-line equivalent \textbf{tcpdump} \cite{TCPDUMP} for buffering received packets and storing them on the router when the outgoing link was down. We used \textbf{tcpreplay} \cite{TCPREPLAY} to send the packets buffered by the tools above out onto the outgoing link when it came back up.
 
 \paragraph{Version Control and Backup:}
 
@@ -407,8 +418,6 @@ This project does not build on any other code/project, but only makes use of com
 The concepts and algorithms required for the dissertation were mostly covered in Part IB Computer Networking, but the delay-tolerant protocol modifications were not included in the course and I had no prior experience with them. Previous experience with C came from the Part IB course as well as a summer internship doing embedded development.
 
 \chapter{Implementation}
-% JCW : Can we start with something more exciting?  E.g. a brief overview of what you've implemented?
-% I think 2 paragraphs explaining what you've implemented would go very well here --- and help the reader navigate this section.
 
 We have implemented two routing protocols, LSR and DTLSR. These are each composed of link-layer systems for detecting link failure and links coming back up, integration of this information into an internal graph representation of the network, and a network-layer mechanism for propagating this information over the entire network.
 
@@ -447,7 +456,7 @@ dtlsr                        Root
 	\texttt{process} contains funtionality for interacting with both CORE and the Unix OS, for example retrieving node information, logging, and manipulating the Unix routing table.
 \end{itemize}
 
-The project was implemented almost entirely in C, with CORE-specific scripts in Python. We used the CMake build system and Check unit testing framework.
+The project was implemented almost entirely in C, with CORE-specific scripts in Python.
 
 \section{Link-State Routing Design}
 
@@ -750,13 +759,13 @@ We do convergence testing with link delays of \SI{1}{\ms} and \SI{100}{\ms}. A l
   \caption{Link delay of \SI{100}{\ms}}
   \label{fig:conv_100ms}
 \end{subfigure}
-\caption{Protocol convergence times, for both the link going down, and the link coming back up. Error bars are the standard deviation.}
+\caption{Protocol convergence times against hop count}
 \label{fig:conv}
 \end{figure}
 
 \subsection{Results}
 
-In the graphs in Figure~\ref{fig:conv} we see the time between the event occurring and it being detected by the router, depending on the number of hops from the event. We consider the zero-hop node to be that directly attached to the flapping link. In both Figure~\ref{fig:conv_1ms} and \ref{fig:conv_100ms} we see a marked difference between the detection time of the UP and DOWN events, where detection of the link coming up happens much faster than detecting it has failed. This is due to the way these are detected at a link-level, with the former being actively detected by a heartbeat and the latter being passively detected by a timeout. It is then clear that these rely heavily on the particular constants chosen for the heartbeat sending period and the amount of time required for a timeout.
+In the graphs in Figure~\ref{fig:conv} we see the time between the event occurring and it being detected by the router, depending on the number of hops from the event. Error bars are the standard deviation of the convergence time. We consider the zero-hop node to be that directly attached to the flapping link. In both Figure~\ref{fig:conv_1ms} and \ref{fig:conv_100ms} we see a marked difference between the detection time of the UP and DOWN events, where detection of the link coming up happens much faster than detecting it has failed. This is due to the way these are detected at a link-level, with the former being actively detected by a heartbeat and the latter being passively detected by a timeout. It is then clear that these rely heavily on the particular constants chosen for the heartbeat sending period and the amount of time required for a timeout.
 
 Hop counts of 1 and above rely on the network-layer section of the protocol, with link-state information being sent from node to node. As LSAs are propagated as soon as they are received, we are bounded mainly by the link delay, which we can see in the difference between the higher hop counts of~\ref{fig:conv_1ms} and~\ref{fig:conv_100ms}. In~\ref{fig:conv_1ms} the delay is so small as for each subsequent hop to be almost indistinguishable from the last, but in~\ref{fig:conv_100ms} we see the delay increasing the convergence time for each hop cumulatively, for both UP and DOWN events.
 
@@ -793,6 +802,7 @@ Firstly we have a topology with a single central connecting link, \texttt{n1-n2}
 \centering
 \begin{subfigure}{.8\textwidth}
   \centering
+  \hspace*{1.1cm}
   \includegraphics[width=1\linewidth]{delay_partition_flap20}
   \caption{Flapping with period $T=\SI{40}{\s}$ (\SI{20}{\s} up, \SI{20}{\s} down).}
   \label{fig:partition_20}
@@ -800,16 +810,17 @@ Firstly we have a topology with a single central connecting link, \texttt{n1-n2}
 
 \begin{subfigure}{.8\textwidth}
   \centering
+  \hspace*{1.1cm}
   \includegraphics[width=1\linewidth]{delay_partition_flap2_20}
   \caption{Flapping with period $T=\SI{22}{\s}$ (\SI{2}{\s} up, \SI{20}{\s} down).}
   \label{fig:partition_2_20}
 \end{subfigure}
 
-\caption{Cumulative distributions of end-to-end delay between \texttt{n5} and \texttt{n6} under different routing algorithms, while flapping link \texttt{n1-n2}.}
+\caption{Cumulative distributions of round-trip delay}
 \label{fig:partition}
 \end{figure}
 
-The results are shown in Figure~\ref{fig:partition}. We see in both cases that LSR successfully delivers a proportion of packets approximately the same as that of the uptime proportion of the link, in Figure~\ref{fig:partition_20} it is up half of the time so we get 50\% delivery, and in Figure~\ref{fig:partition_2_20} it is up one tenth of the time so we get a 9\% delivery rate. We can attribute the 1\% discrepancy to packet drops that will be explained below. DTLSR achieves a drastically higher delivery ratio in both cases due to packets being buffered at the router before the failure, then forwarded on when it comes back up.
+The results are shown in Figure~\ref{fig:partition}, as cumulative distributions of round-trip delay between \texttt{n5} and \texttt{n6} under different routing algorithms, while flapping link \texttt{n1-n2}. We see in both cases that LSR successfully delivers a proportion of packets approximately the same as that of the uptime proportion of the link, in Figure~\ref{fig:partition_20} it is up half of the time so we get 50\% delivery, and in Figure~\ref{fig:partition_2_20} it is up one tenth of the time so we get a 9\% delivery rate. We can attribute the 1\% discrepancy to packet drops that will be explained below. DTLSR achieves a drastically higher delivery ratio in both cases due to packets being buffered at the router before the failure, then forwarded on when it comes back up.
 
 In both plots the packets can be split into two groups. For the first group both LSR and DTLSR have a constant delay of \SI{6}{\ms}. For LSR the second group of packets are dropped, whereas for DTLSR their delay increases linearly (showing as an exponential curve in the $\log x$-$y$ graph). The first group is due to the link being up the described proportion of the time of the time, so all packets sent in this period take approximately the same time to arrive, taking a round-trip journey over three links (\texttt{n5-n1-n2-n6}) each of \SI{1}{\ms} delay. The second group is a little more subtle, and is due to the packet buffering and replaying behaviour. \texttt{ping} sends packets at a constant interval but the buffered packets are replayed all at once when the link comes back up, thus the earlier that a ping is sent in the link-down period, the greater time delay there will be between the client sending the packet and receiving a reply.
 
@@ -817,6 +828,7 @@ This variability in delay can be undesirable, but it is not something that can b
 
 \begin{figure}
   \centering
+  \hspace*{2.4cm}
   \includegraphics[width=0.8\linewidth]{delay_partition_flap5}
   \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
   \label{fig:partition_5}
@@ -854,6 +866,7 @@ Our second topology shown in Figure~\ref{fig:full_partition_topology} is similar
 \centering
 \begin{subfigure}{.8\textwidth}
   \centering
+  \hspace*{1.1cm}
   \includegraphics[width=1\linewidth]{delay_full_partition_flap5}
   \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
   \label{fig:full_partition_flap5}
@@ -861,11 +874,12 @@ Our second topology shown in Figure~\ref{fig:full_partition_topology} is similar
 
 \begin{subfigure}{.8\textwidth}
   \centering
+  \hspace*{1.1cm}
   \includegraphics[width=1\linewidth]{delay_full_partition_flap20}
   \caption{Flapping with period $T=\SI{40}{\s}$ (\SI{20}{\s} up, \SI{20}{\s} down).}
   \label{fig:full_partition_flap20}
 \end{subfigure}
-\caption{}
+\caption{Cumulative distributions of round-trip delay}
 \label{fig:full_partition_flap}
 \end{figure}
 
@@ -885,44 +899,28 @@ Our third topology shown in Figure~\ref{fig:box} is a `box'-shaped one, where we
 	\captionof{figure}{`Box' network topology.}
 \end{minipage}
 
-%\begin{figure}[H]
-%\centering
-%\begin{subfigure}{.5\textwidth}
-%  \centering
-%  \includegraphics[width=1\linewidth]{delay_box_flap5}
-%  \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
-%  \label{fig:box_5}
-%\end{subfigure}%
-%\begin{subfigure}{.5\textwidth}
-%  \centering
-%  \includegraphics[width=1\linewidth]{delay_box_flap10}
-%  \caption{Flapping with period $T=\SI{20}{\s}$ (\SI{10}{\s} up, \SI{10}{\s} down).}
-%  \label{fig:box_20}
-%\end{subfigure}
-%\caption{Cumulative distributions of end-to-end delay between \texttt{n1} and \texttt{n2} under different routing algorithms, while flapping link \texttt{n3-n4}.}
-%\label{fig:box}
-%\end{figure}
-
 \begin{figure}
 \centering
 \begin{subfigure}{0.8\textwidth}
   \centering
+  \hspace*{1.1cm}
   \includegraphics[width=1\linewidth]{delay_box_flap2}
   \caption{Flapping with period $T=\SI{4}{\s}$ (\SI{2}{\s} up, \SI{2}{\s} down).}
-  \label{fig:box_20}
+  \label{fig:box_2}
 \end{subfigure}
 \centering
 \begin{subfigure}{0.8\textwidth}
   \centering
+  \hspace*{1.1cm}
   \includegraphics[width=1\linewidth]{delay_box_flap5}
   \caption{Flapping with period $T=\SI{10}{\s}$ (\SI{5}{\s} up, \SI{5}{\s} down).}
   \label{fig:box_5}
 \end{subfigure}
-\caption{Cumulative distributions of end-to-end delay between \texttt{n1} and \texttt{n2} under different routing algorithms, while flapping link \texttt{n3-n4}.}
+\caption{Cumulative distributions of round-trip delay}
 \label{fig:box}
 \end{figure}
 
-We see in both cases that LSR successfully switches to the backup link whenever the main link goes down, shown by a large proportion of packets having an RTT of approximately \SI{28}{\ms}. As described above, it takes time for the protocol to detect that the link is down and to respond by modifying the routing table, which causes packet losses. Increasing the flapping frequency increases the number of these boundary periods, thus increasing the proportion of time dropping packets. This is reflected in the higher proportion of packets being dropped with a shorter flapping period for LSR.
+We see in both cases in Figure~\ref{fig:box} that LSR successfully switches to the backup link whenever the main link goes down, shown by a large proportion of packets having an RTT of approximately \SI{28}{\ms}. As described above, it takes time for the protocol to detect that the link is down and to respond by modifying the routing table, which causes packet losses. Increasing the flapping frequency increases the number of these boundary periods, thus increasing the proportion of time dropping packets. This is reflected in the higher proportion of packets being dropped with a shorter flapping period for LSR in Figure~\ref{fig:box_2}.
 
 We again see that DTLSR achieves a higher proportion of delivered packets than LSR. While it is a lot closer than in the partition topology, there is still a marked difference. DTLSR uses its metric to judge the failed link in comparison to the backup link, switching onto it as shown by DTLSR also having a large portion of packets having a delay of around \SI{28}{\ms}. DTLSR is slightly slower to switch the route due to the metrics hysteresis, shown by LSR having a slightly higher proportion of packets with \SI{28}{\ms}. However DTLSR ends up with a higher delivery rate overall due to the packet buffering, shown on the top right of each of the graphs.
 
@@ -1015,7 +1013,7 @@ Choosing to implement the protocols in C taught me a lot about software developm
 
 Although DTLSR has met its goals, it could be enhanced further. While it is a much more proactive protocol than LSR, making general predictions about link reliability in the future with a single metric value, we could use more complex pattern recognition to predict exactly when the link will come back up based on what its flapping behaviour has been in the past. This could be implemented with a simple statistical analysis of the uptime history, but could also be extended to use machine learning techniques to detect more complex flapping patterns.
 
-The two protocols could also be tested in an unreliable network environment with real hardware, perhaps even being tested in the field. Given the significant performance advantage shown by DTLSR over LSR in emulated network testing using CORE, it is promising enough that the costs would be worth it. CORE allows real nodes to be connected to the emulated network, reducing the marginal cost of testing in this way as it could be done incrementally, also requiring minimal modification of the protocols. \cite{einstein}
+The two protocols could also be tested in an unreliable network environment with real hardware, perhaps even being tested in the field. Given the significant performance advantage shown by DTLSR over LSR in emulated network testing using CORE, it is promising enough that the costs would be worth it. CORE allows real nodes to be connected to the emulated network, reducing the marginal cost of testing in this way as it could be done incrementally, also requiring minimal modification of the protocols.
 
 
 
