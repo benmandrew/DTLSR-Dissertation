@@ -256,8 +256,9 @@ DTLSR greatly decreases the drop rate of packets over networks with frequent par
 % JCW cites needed  -- try adding 'survey' to your search terms because those shoudl cover most of the existing work within them.
 % jcw: note --- is for em dash, not -
 % OTherwsie excellent paragraph explaining why is is related but not usefu.
-There has been much research into `mobile ad-hoc networks' (MANETs) \cite{ABOLHASAN2004}, where mobile nodes physically move around and have intermittent and unpredictable connectivity with other nodes. This requires a dramatic change in network protocol design, but for our situation it is not necessary. Link failures in a mobile network are usually due to topology changes, but networks in developing regions have largely static topologies with modem or satellite links where link failures, mostly due to congestion or unreliable power, do not imply that the topology has changed \cite{DEMMER2007}. When the failure is resolved the topology will be the same as before, thus we are able to use a well-understood link-state paradigm with comparatively minor modifications, making deployment far easier and minimising wasted resources from unnecessary features.
+There has been much research into `mobile ad-hoc networks' (MANETs) \cite{ABOLHASAN2004}, where mobile nodes physically move around and have intermittent and unpredictable connectivity with other nodes. This requires a dramatic change in network protocol design, and ideas have been explored such as flooding via relay nodes \cite{CLAUSEN2003}, taking advantage of clustering \cite{ONUR2022}, and even implementing overlay networks to homogenise multiple subnets that use completely heterogeneous network stacks \cite{SCOTT2007}. Of relevance is the technique of `schedule-aware' routing, where the contact schedules of pairs of nodes are known and can be exploited \cite{GARETTO2009}. For example this is used in space networks where we know the exact time that two satellites will pass by each other on their orbits, and send the data on that prediction.
 
+For our situation this is not necessary. Link failures in a mobile network are usually due to topology changes \cite{DIVECHA2007}, but networks in developing regions have largely static topologies with modem or satellite links where link failures, mostly due to congestion or unreliable power, do not imply that the topology has changed \cite{DEMMER2007}. When the failure is resolved the topology will be the same as before, thus we are able to use a well-understood link-state paradigm with comparatively minor modifications. There is of course a large design space to explore \cite{FARRELL2006}, but we choose to make smaller modifications which makes deployment far easier and minimises wasted resources from unnecessary features. We want to be able to use as many off-the-shelf components as possible to reduce cost, a critical requirement of infrastructure in environments like these.
 
 
 \chapter{Preparation}
@@ -704,7 +705,8 @@ An example of hardcoding is that the memory representation of the link-state gra
 While CORE supports IPv6 addressing, we restricted myself to only supporting IPv4 to reduce the unnecessary complexity of supporting another addressing scheme that would have no impact on the performance of the routing protocol, and thus not help my evaluation at all.
 
 
-\chapter{Evaluation} \label{chapter:evaluation}
+\chapter{Evaluation}
+\label{chapter:evaluation}
 
 The evaluation is done using the CORE emulator. We define a network topology of hosts and routers, with the routers running either the LSR or DTLSR routing protocol, in order to compare the performance of both for a variety of metrics on a variety of different topologies.
 % JCW: Add a sentence about why these are the right metrics to measure
@@ -846,13 +848,14 @@ Our second topology shown in Figure~\ref{fig:full_partition_topology} is similar
 
 \begin{figure}[H]
 \centering
-\begin{subfigure}{.5\textwidth}
+\begin{subfigure}{.65\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{delay_full_partition_topology}
   \caption{}
   \label{fig:full_partition_topology}
-\end{subfigure}%
-\begin{subfigure}{.5\textwidth}
+\end{subfigure}
+
+\begin{subfigure}{.65\textwidth}
   \centering
   \includegraphics[width=1\linewidth]{delay_full_partition_graph}
   \caption{}
@@ -861,6 +864,10 @@ Our second topology shown in Figure~\ref{fig:full_partition_topology} is similar
 \caption{`Full partition' network topology with anti-correlated link failures.}
 \label{fig:full_partition}
 \end{figure}
+
+We see in Figure~\ref{fig:full_partition_flap} that LSR achieves zero packet delivery, compared to DTLSR achieving upwards of 70\% percent overall. This is notably much more serious than the results above, where LSR achieved a lower but still greater-than-zero delivery, as retransmission-based transport protocols rely on the fact that there is \textit{some} packet delivery, where in the limit of time with retransmissions the probability of delivery approaches 1. However with zero delivery, this limit stays at zero and thus our unreliable network cannot be made reliable with a transport layer protocol. We rely entirely on the routing layer's buffering to achieve any communication whatsoever.
+
+As we increase the flapping period, thus reducing the frequency of boundary events, we again see in Figures~\ref{fig:full_partition_flap5} and \ref{fig:full_partition_flap20} that the packet delivery rate increases. However it is not as large of an increase as seen in the other topologies.
 
 \begin{figure}[H]
 \centering
@@ -882,10 +889,6 @@ Our second topology shown in Figure~\ref{fig:full_partition_topology} is similar
 \caption{Cumulative distributions of round-trip delay}
 \label{fig:full_partition_flap}
 \end{figure}
-
-We see in Figure~\ref{fig:full_partition_flap} that LSR achieves zero packet delivery, compared to DTLSR achieving upwards of 70\% percent overall. This is notably much more serious than the results above, where LSR achieved a lower but still greater-than-zero delivery, as retransmission-based transport protocols rely on the fact that there is \textit{some} packet delivery, where in the limit of time with retransmissions the probability of delivery approaches 1. However with zero delivery, this limit stays at zero and thus our unreliable network cannot be made reliable with a transport layer protocol. We rely entirely on the routing layer's buffering to achieve any communication whatsoever.
-
-As we increase the flapping period, thus reducing the frequency of boundary events, we again see in Figures~\ref{fig:full_partition_flap5} and \ref{fig:full_partition_flap20} that the packet delivery rate increases. However it is not as large of an increase as seen in the other topologies.
 
 It's interesting to note that we also see an approximately proportional increase in the packet delay as we increase the flapping period, with packets having a delay around four times as large with $T=40$ than $T=10$. This is because packets are spending the vast majority of their time waiting for the link to come back up. It is a similar phenomenon to driving down a long road with traffic lights in series; if the lights are anti-correlated then you will be stopped at each in turn, and your progress down the road will depend almost entirely on the switching frequency of the lights.
 
@@ -943,14 +946,14 @@ Thirdly, the peak bitrate gives us some information about the growth rate of the
 \begin{figure}[htb]
   \centering
   \includegraphics[width=0.75\linewidth]{tcp_bar_flap2}
-  \caption{Comparison of LSR and DTLSR for a number of TCP session characteristics.}
+  \caption{Comparison of LSR and DTLSR for a number of TCP session characteristics}
   \label{fig:tcp_bar}
 \end{figure}
 
 \begin{figure}[htb]
   \centering
   \includegraphics[width=0.6\linewidth]{tcp_throughput_flap2}
-  \caption{CDF of bitrate for the TCP session.}
+  \caption{CDF of bitrate for the TCP session}
   \label{fig:tcp_throughput}
 \end{figure}
 
@@ -959,6 +962,13 @@ Figure~\ref{fig:tcp_throughput} shows us how TCPs throughput varies over time on
 DTLSR's curve is more complex, showing a start to the throughput increase closer to the 0.5 point that we want. The `\textbf{s}' curve is likely caused by the interaction between the packet buffering system and TCPs feedback mechanism for increasing its window size. The first sharp jump in bitrate around 0.6 may be caused by the sudden arrival of a large number of buffered packets at the receiving endpoint when the link comes back up, generating a large number of ACKs which then quickly increase the window size. This causes the host to transmit a large number of packets in quick succession, which then feeds into the slower throughput build-up we see the DTLSR curve undergo.
 
 We see from the curve in Figure~\ref{fig:tcp_throughput} that DTLSR has a more consistent throughput, being close to its mean value more of the time. We compare it to LSR's curve which varies a lot more. This consistency is a benefit for the network as a whole, as it makes congestion more predictable when we have a number of TCP sessions running concurrently.
+
+\subsection{Effect of Failures on Throughput}
+
+
+
+
+
 
 
 
@@ -1005,7 +1015,7 @@ When running under TCP, DTLSR surpassed my expectations by reducing the drop rat
 
 \section{Lessons Learnt}
 
-This project tested software engineering, systems engineering, and computer science abilities a great deal. I have found it a wonderful learning experience.
+This project tested my software engineering, systems engineering, and computer science abilities a great deal. I have found it a wonderful learning experience.
 
 Choosing to implement the protocols in C taught me a lot about software development for a low-level, high-performance system. While C provided a few useful utilities used in this project, it would have been much easier implementing in a higher-level language, such as OCaml or Java; for example I had particular pains with memory management, which these languages manage automatically. Due to the research nature of this project, of comparing two protocols rather than creating a production-ready implementation, if I were to start again I would choose to implement in one of these languages.
 
