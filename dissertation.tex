@@ -973,6 +973,7 @@ As stated above this kind of topology is uncommon in remote and developing regio
 %We see from the curve in Figure~\ref{fig:tcp_throughput} that DTLSR has a more consistent throughput, being close to its mean value more of the time. We compare it to LSR's curve which varies a lot more. This consistency is a benefit for the network as a whole, as it makes congestion more predictable when we have a number of TCP sessions running concurrently.
 
 \section{TCP Throughput in Unreliable Contexts}
+\label{sec:tcp}
 
 We briefly explore here the behaviour of TCP in unreliable networks. While the focus of this dissertation is on delay and packet delivery, given TCP's common usage we include it for completeness and to shed light on the inherent properties required of a delay-tolerant network stack.
 
@@ -984,9 +985,9 @@ As a representation of throughput we find experimentally the mean bitrates for t
 
 We see in Figure~\ref{fig:tcp_5_30} that both LSR and DTLSR fall far short of the ideal throughput. The discrepancy between LSR and the ideal heavily implies that link failures negatively affect TCP's feedback system, which is not surprising given that TCP is built to take advantage of a network with consistent delay, trying to find a steady-state it can sit in. When there are endemic link failures, this assumption is broken and TCP's throughput suffers because of it.
 
-We see also that DTLSR has a slightly lower bitrate than LSR. I predict that this is due to DTLSR's buffering system and TCP's feedback system working very poorly with each other. When the link comes back up, a DTLSR router forwards all of the buffered packets as quickly as possible, resulting in a flood of ACKs being returned to the sender. TCP isn't designed expecting this to occur, and so it introduces instability into its feedback system, reducing the mean bitrate overall as it tries to recover.
+We see also that DTLSR has a slightly lower bitrate than LSR. I predict that this is due to DTLSR's buffering system and TCP's feedback system working very poorly with each other. When the link comes back up, a DTLSR router forwards all of the buffered packets as quickly as possible, resulting in a flood of ACKs being returned to the sender. TCP isn't designed expecting this to occur and so it introduces instability into its feedback system, reducing the mean bitrate overall as it tries to recover.
 
-In both of the analyses described above, we see that TCP has an inherent weakness in running on a delay-tolerant network
+In both of the analyses described above, we see that TCP has an inherent weakness in running on a delay-tolerant network, particularly in responding correctly to the link coming back up. We thus see that in real applications it is not simply enough to replace the routing layer of a traditional network stack, but that the session layer as well must be changed in order to adapt to the new behaviour that the routing layer exhibits.
 
 \begin{figure}
   \centering
@@ -1002,7 +1003,7 @@ This chapter shows that DTLSR is an effective protocol for improving the delay a
 
 In particular, DTLSR has a strong advantage over LSR in maximising packet delivery in sparsely connected, unreliable networks, especially when link failures cause network partitions. Even when backup links exist, DTLSR is shown to reduce the drop rate of packets by around half compared to LSR. DTLSR's largest advantage is shown in networks with correlated link failures leading to no end-to-end connection, providing a delivery rate upwards of 70\% compared to LSR providing no communication whatsoever.
 
-We also see how DTLSR provides a strong advantage over LSR when running TCP, with a higher mean bitrate and more consistent distribution of bitrates. The greatest advantage shown is a significant decrease in required packet retransmission, at only 39.1\% of LSR's retry count.
+We also see that the session-layer protocol running above the routing layer is critically important for taking advantage of the delay-tolerant characteristics in a real scenario. The commonly-used TCP responds badly to the inherent instability of a network like this, and so an awareness of the network stack as a whole is crucial.
 
 \chapter{Conclusion}
 % JCW -- you need to find some headline figures --- 1/2 numbers that summarise your evaluation --- those can be reapted in the intro, abstract and here. (and obvs also your evaluation.)
@@ -1015,7 +1016,7 @@ The project has been a complete success, fully meeting the initial goals and sur
 
 As described in Chapter~\ref{chapter:evaluation}, DTLSR surpasses LSR in a wide variety of unreliable networks. We see a case in Figure~\ref{fig:partition_2_20} where the unreliable link is only up 10\% of the time; DTLSR achieves a drastically higher delivery rate than LSR, at 97\%. Even when a backup link exists --- a case where delay-tolerant modifications would be expected to have minimal impact --- DTLSR reduced the packet drop rate by more than half.
 
-When running under TCP, DTLSR surpassed my expectations by reducing the drop rate of packets significantly to 39\% of that with LSR, and even increasing the mean bitrate by 22\%, which we see in Figure~\ref{fig:tcp_bar}.
+A particularly interesting case is detailed in ~\ref{fig:full_partition_flap20} where multiple link failures cause no end-to-end connection to exist. LSR achieved absolutely zero packet delivery, a critical problem that cannot be ameliorated with packet retransmission. DTLSR achieved more than 70\% delivery, which is an overwhelming success.
 
 \begin{minipage}{1\textwidth}
 
@@ -1023,16 +1024,17 @@ When running under TCP, DTLSR surpassed my expectations by reducing the drop rat
   \centering
   \hspace*{2.4cm}
   \includegraphics[width=0.8\linewidth]{delay_partition_flap2_20}
-  \repeatcaption{fig:partition_2_20}{Flapping with period $T=\SI{22}{\s}$ (\SI{2}{\s} up, \SI{20}{\s} down).}
+  \repeatcaption{fig:partition_2_20}{}
 \end{figure}
-
-\vspace{-10mm} 
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.65\linewidth]{tcp_bar_flap2}
-  \repeatcaption{fig:tcp_bar}{TCP session characteristics.}
+  \hspace*{2.4cm}
+  \includegraphics[width=0.8\linewidth]{delay_full_partition_flap20}
+  \repeatcaption{fig:full_partition_flap20}{}
 \end{figure}
+
+
 
 \end{minipage}
 
@@ -1048,6 +1050,8 @@ Choosing to implement the protocols in C taught me a lot about software developm
 Although DTLSR has met its goals, it could be enhanced further. While it is a much more proactive protocol than LSR, making general predictions about link reliability in the future with a single metric value, we could use more complex pattern recognition to predict exactly when the link will come back up based on what its flapping behaviour has been in the past. This could be implemented with a simple statistical analysis of the uptime history, but could also be extended to use machine learning techniques to detect more complex flapping patterns.
 
 The two protocols could also be tested in an unreliable network environment with real hardware, perhaps even being tested in the field. Given the significant performance advantage shown by DTLSR over LSR in emulated network testing using CORE, it is promising enough that the costs would be worth it. CORE allows real nodes to be connected to the emulated network, reducing the marginal cost of testing in this way as it could be done incrementally, also requiring minimal modification of the protocols.
+
+As described in Section~\ref{sec:tcp}, TCP has some serious deficiencies running atop a delay-tolerant routing layer. It would be very interesting to explore session-layer protocols that are more delay-tolerant, either adaptations of TCP or completely new designs. This is a large and exciting space for new ideas.
 
 I hope to look at some of these challenges in future research if the opportunity arises.
 
