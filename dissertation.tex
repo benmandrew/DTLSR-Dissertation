@@ -234,7 +234,9 @@ When we consider multiple link failures occurring along a path at once, the tota
 
 \section{Objectives of the Project}
 
-This project compares the performance of a protocol using traditional link-state routing with a modified version implementing delay-tolerant features. To have control over the behaviour of the protocols both are implemented from scratch in C, with the design based off of the OSPF protocol \cite{OSPF}. The evaluation focuses mainly on the drop rate of packets along with the delay of packet arrivals. We do the evaluation by running the protocols on an industry-grade network emulator that provides a realistic testing environment with full control over the network properties.
+In this project we produce two routing-layer protocols, `Link-State Routing' (LSR) and `Delay-Tolerant Link-State Routing' (DTLSR); we then compare their performance in a number of scenarios that are common in unreliable network environments, focusing on delay and packet delivery rate.
+
+To have control over the behaviour of the protocols both are implemented from scratch in C, with the design based off of the OSPF protocol \cite{OSPF}. We perform the evaluation by running the protocols on an industry-grade network emulator \cite{CORE} that provides a realistic testing environment with full control over the network properties; this is detailed in Section \ref{sec:core}.
 
 \subsection{Results}
 
@@ -290,6 +292,7 @@ As well as having a larger delay, we see in the value of $N$ and in the name of 
 As shown in the evaluation packet buffering techniques do still have a small number of packet drops and so some end-to-end retransmission is needed, but when the link comes back up we are free to use an explicit signalling technique from the destination endpoint to identify dropped packets, such as TCPs triple-ACKed fast retransmit, minimising the amount of retransmission that the source needs to do.
 
 \section{Common Open Research Emulator (CORE)}
+\label{sec:core}
 
 CORE \cite{CORE} is a network emulator that models nodes as lightweight Unix virtual machines, complete with filesystems and network interfaces. It comes out of the U.S.\ Naval Research Laboratory and was developed by Boeing Research and Technology. In Figure~\ref{fig:core_topology} we see an example topology in the CORE GUI, showing virtual routers and hosts along with their IP addresses. In Listing~\ref{core_filesystem} we see an example of a virtualised file-system of node \texttt{n1}; boot scripts and log files of the DTLSR and \texttt{heartbeat} (\texttt{hbt}) protocols are visible. Nodes communicate via virtualised interfaces, connected by bridges emulating physical links. We see an example of this in Listing~\ref{core_interfaces}.
 
@@ -420,7 +423,7 @@ The concepts and algorithms required for the dissertation were mostly covered in
 
 \chapter{Implementation}
 
-We have implemented two routing protocols, LSR and DTLSR. These are each composed of link-layer systems for detecting link failure and links coming back up, integration of this information into an internal graph representation of the network, and a network-layer mechanism for propagating this information over the entire network.
+This chapter discusses the implementation of two routing protocols, LSR and DTLSR. The initial design of LSR is described in Section~\ref{sec:lsr_design}, and the modifications made to produce DTLSR are described in Section~\ref{sec:dtlsr_design}. Each protocol is composed of link-layer systems for detecting link failure and links coming back up, integration of this information into an internal graph representation of the network, and a network-layer mechanism for propagating this information over the entire network.
 
 Also implemented is a way for each router to use this information to generate shortest paths to every other node, aggregating this information to modify the routing table accordingly. Significant effort was put into the delay-tolerant modifications in DTLSR, with a local packet buffering system for link-failure tolerance, and a sophisticated metric for comparing the reliability of links when alternate routes exist.
 
@@ -459,7 +462,12 @@ dtlsr                        Root
 
 The project was implemented almost entirely in C, with CORE-specific scripts in Python.
 
+\subsection{Repository Justification}
+
+The \texttt{src/}, \texttt{include/}, and \texttt{tests/} directory separate code from the build system, as well as being separated from each other as they each serve a different purpose. Within these folders sources files are separated by purpose as described above, with the groupings being important to encourage good header inclusion practice, reducing the complexity of programming in the long run.
+
 \section{Link-State Routing Design}
+\label{sec:lsr_design}
 
 The link-state routing protocol that we implemented is split into two programs, \texttt{heartbeat} and LSR.  Routers run both programs, and hosts run only \texttt{heartbeat}.
 
@@ -583,6 +591,7 @@ With many destinations we have a large number of routing table entries, but we c
 Manipulation of the Unix routing table is done through \texttt{ioctl}, a system call for interacting with OS devices through a file descriptor interface. We pass a flag corresponding to route addition or deletion, along with a `\texttt{route}' struct containing the route details.
 
 \section{Delay-Tolerant Modifications}
+\label{sec:dtlsr_design}
 
 For the delay-tolerant version of the protocol suite, we replace the LSR executable with DTLSR, keeping \texttt{heartbeat} the same. DTLSR uses mostly the same source files as LSR, with the delay-tolerant modifications enabled by \texttt{\#ifdef DTLSR} preprocessor switches, as shown in Listing~\ref{preprocessor_switch} where the choice of link metric differs in LSR and DTLSR. DTLSR maintains many of the same implementation design decisions as above with a few additions. We see the modified event loop of DTLSR in Figure~\ref{fig:flowchart_dtlsr}, with new stages shown in blue, and existing stages that have been modified shown in yellow.
 
@@ -929,47 +938,62 @@ We again see that DTLSR achieves a higher proportion of delivered packets than L
 
 As stated above this kind of topology is uncommon in remote and developing regions due to the cost of adding backup links. However it is useful to contrast LSR and DTLSR and show that even with other hardware solutions to failure, DTLSR still has a competitive advantage over LSR in delivery rate.
 
-\section{TCP}
+%\section{TCP}
 
-In this section we compare how LSR and DTLSR support a TCP session running over an unreliable network. We re-use the `partial partition' topology as seen in Figure~\ref{fig:partition_topology}, and have the central link flapping with a period of $T=\SI{4}{\s}$ (\SI{2}{\s} up, \SI{2}{\s} down). Each link has a maximum bitrate of \SI{100}{Gbps}, which is important for working out how well the links are utilised by TCP.
+%In this section we compare how LSR and DTLSR support a TCP session running over an unreliable network. We re-use the `partial partition' topology as seen in Figure~\ref{fig:partition_topology}, and have the central link flapping with a period of $T=\SI{4}{\s}$ (\SI{2}{\s} up, \SI{2}{\s} down). Each link has a maximum bitrate of \SI{100}{Gbps}, which is important for working out how well the links are utilised by TCP.
 
-We test using the \texttt{iperf3} command-line tool, which tests the performance of a network using TCP; one node is designated as the client, sending data, and one as the server, receiving the data and sending back ACKs. \texttt{iperf3} periodically reports derived metrics of the session, for example throughput, TCP window size, and the number of retries.
+%We test using the \texttt{iperf3} command-line tool \cite{IPERF}, which tests the performance of a network using TCP; one node is designated as the client, sending data, and one as the server, receiving the data and sending back ACKs. \texttt{iperf3} periodically reports derived metrics of the session, for example throughput, TCP window size, and the number of retries.
+
+%\subsection{Results}
+
+%We see in Figure~\ref{fig:tcp_bar} three important metrics to compare LSR and DTLSR. The first is the comparative proportion of retries that the TCP session must do when running over each protocol; we see that DTLSR creates far fewer retries than LSR, explained by DTLSR buffering packets when the link is down then forwarding them on when it comes up, rather than just dropping them and requiring that they be retransmitted. This is a significant advantage for DTLSR as it puts far less computational strain on the sending host, and makes more efficient utilisation of the networks bandwidth.
+
+%The second important metric is the mean bitrate, supported by the peak bitrate. We see that DTLSR has a competitive advantage over LSR in mean throughput, being 22\% higher, resulting in more data transferred over time.
+
+%Thirdly, the peak bitrate gives us some information about the growth rate of the throughput, telling us what bitrate was achieved before the link went down again. We note that while LSR achieves a higher peak rate than DTLSR, neither get anywhere close to the \SI{100}{Gbps} limit of the link. This is because the slow linear growth of TCPs throughput is thrashed by the frequent link flapping, never allowing it to saturate the link. We thus see that TCP fundamentally has difficulty running in an unreliable network environment.
+
+%\begin{figure}[htb]
+%  \centering
+%  \includegraphics[width=0.75\linewidth]{tcp_bar_flap2}
+%  \caption{Comparison of LSR and DTLSR for a number of TCP session characteristics}
+%  \label{fig:tcp_bar}
+%\end{figure}
+
+%\begin{figure}[htb]
+%  \centering
+%  \includegraphics[width=0.6\linewidth]{tcp_throughput_flap2}
+%  \caption{CDF of bitrate for the TCP session}
+%  \label{fig:tcp_throughput}
+%\end{figure}
+
+%Figure~\ref{fig:tcp_throughput} shows us how TCPs throughput varies over time on both LSR and DTLSR, shown as a cumulative distribution. LSR has a somewhat expected curve, as we see the linear stepping increase from 0.8 to 1.0 which represents the linear growth in TCPs steady state. Of concern is that this growth starts only at 0.8, when one would expect it to start at 0.5 given that the link is up half of the time. This may be caused by TCP depending on feedback from the receiving endpoint to start increasing its window size, significantly delaying transmission.
+
+%DTLSR's curve is more complex, showing a start to the throughput increase closer to the 0.5 point that we want. The `\textbf{s}' curve is likely caused by the interaction between the packet buffering system and TCPs feedback mechanism for increasing its window size. The first sharp jump in bitrate around 0.6 may be caused by the sudden arrival of a large number of buffered packets at the receiving endpoint when the link comes back up, generating a large number of ACKs which then quickly increase the window size. This causes the host to transmit a large number of packets in quick succession, which then feeds into the slower throughput build-up we see the DTLSR curve undergo.
+
+%We see from the curve in Figure~\ref{fig:tcp_throughput} that DTLSR has a more consistent throughput, being close to its mean value more of the time. We compare it to LSR's curve which varies a lot more. This consistency is a benefit for the network as a whole, as it makes congestion more predictable when we have a number of TCP sessions running concurrently.
+
+\section{TCP Throughput in Unreliable Contexts}
+
+We briefly explore here the behaviour of TCP in unreliable networks. While the focus of this dissertation is on delay and packet delivery, given TCP's common usage we include it for completeness and to shed light on the inherent properties required of a delay-tolerant network stack.
+
+We re-use the `partial partition' topology as seen in Figure~\ref{fig:partition_topology}, and have the central link flapping with a period of $T=\SI{35}{\s}$ (\SI{5}{\s} up, \SI{30}{\s} down). We test using the \texttt{iperf3} command-line tool \cite{IPERF}, which tests the performance of a network using TCP; one node is designated as the client, sending data, and one as the server, receiving the data and sending back ACKs. \texttt{iperf3} periodically reports derived metrics of the session, for example throughput, TCP window size, and the number of retries.
+
+As a representation of throughput we find experimentally the mean bitrates for three different situations: firstly and secondly using LSR and DTLSR as we did in testing above, but thirdly we find our `\textbf{ideal}' TCP throughput by running a TCP session with no link failure, and multiplying the mean throughput by the proportion of time that the link would be up if there were link failure, in this case multiplying by $1/7$ as the link flapping is \SI{5}{\s} up, \SI{30}{\s} down. This removes the impact of packet losses due to link failure on TCP's feedback system for window sizing, thus we can see the effects that link failure has on TCP by the difference between LSR and the ideal.
 
 \subsection{Results}
 
-We see in Figure~\ref{fig:tcp_bar} three important metrics to compare LSR and DTLSR. The first is the comparative proportion of retries that the TCP session must do when running over each protocol; we see that DTLSR creates far fewer retries than LSR, explained by DTLSR buffering packets when the link is down then forwarding them on when it comes up, rather than just dropping them and requiring that they be retransmitted. This is a significant advantage for DTLSR as it puts far less computational strain on the sending host, and makes more efficient utilisation of the networks bandwidth.
+We see in Figure~\ref{fig:tcp_5_30} that both LSR and DTLSR fall far short of the ideal throughput. The discrepancy between LSR and the ideal heavily implies that link failures negatively affect TCP's feedback system, which is not surprising given that TCP is built to take advantage of a network with consistent delay, trying to find a steady-state it can sit in. When there are endemic link failures, this assumption is broken and TCP's throughput suffers because of it.
 
-The second important metric is the mean bitrate, supported by the peak bitrate. We see that DTLSR has a competitive advantage over LSR in mean throughput, being 22\% higher, resulting in more data transferred over time.
+We see also that DTLSR has a slightly lower bitrate than LSR. I predict that this is due to DTLSR's buffering system and TCP's feedback system working very poorly with each other. When the link comes back up, a DTLSR router forwards all of the buffered packets as quickly as possible, resulting in a flood of ACKs being returned to the sender. TCP isn't designed expecting this to occur, and so it introduces instability into its feedback system, reducing the mean bitrate overall as it tries to recover.
 
-Thirdly, the peak bitrate gives us some information about the growth rate of the throughput, telling us what bitrate was achieved before the link went down again. We note that while LSR achieves a higher peak rate than DTLSR, neither get anywhere close to the \SI{100}{Gbps} limit of the link. This is because the slow linear growth of TCPs throughput is thrashed by the frequent link flapping, never allowing it to saturate the link. We thus see that TCP fundamentally has difficulty running in an unreliable network environment.
+In both of the analyses described above, we see that TCP has an inherent weakness in running on a delay-tolerant network
 
-\begin{figure}[htb]
+\begin{figure}
   \centering
-  \includegraphics[width=0.75\linewidth]{tcp_bar_flap2}
-  \caption{Comparison of LSR and DTLSR for a number of TCP session characteristics}
-  \label{fig:tcp_bar}
+  \includegraphics[width=0.8\linewidth]{tcp_bar_flap5_30}
+  \caption{}
+  \label{fig:tcp_5_30}
 \end{figure}
-
-\begin{figure}[htb]
-  \centering
-  \includegraphics[width=0.6\linewidth]{tcp_throughput_flap2}
-  \caption{CDF of bitrate for the TCP session}
-  \label{fig:tcp_throughput}
-\end{figure}
-
-Figure~\ref{fig:tcp_throughput} shows us how TCPs throughput varies over time on both LSR and DTLSR, shown as a cumulative distribution. LSR has a somewhat expected curve, as we see the linear stepping increase from 0.8 to 1.0 which represents the linear growth in TCPs steady state. Of concern is that this growth starts only at 0.8, when one would expect it to start at 0.5 given that the link is up half of the time. This may be caused by TCP depending on feedback from the receiving endpoint to start increasing its window size, significantly delaying transmission.
-
-DTLSR's curve is more complex, showing a start to the throughput increase closer to the 0.5 point that we want. The `\textbf{s}' curve is likely caused by the interaction between the packet buffering system and TCPs feedback mechanism for increasing its window size. The first sharp jump in bitrate around 0.6 may be caused by the sudden arrival of a large number of buffered packets at the receiving endpoint when the link comes back up, generating a large number of ACKs which then quickly increase the window size. This causes the host to transmit a large number of packets in quick succession, which then feeds into the slower throughput build-up we see the DTLSR curve undergo.
-
-We see from the curve in Figure~\ref{fig:tcp_throughput} that DTLSR has a more consistent throughput, being close to its mean value more of the time. We compare it to LSR's curve which varies a lot more. This consistency is a benefit for the network as a whole, as it makes congestion more predictable when we have a number of TCP sessions running concurrently.
-
-\subsection{Effect of Failures on Throughput}
-
-
-
-
-
-
 
 
 \section{Summary}
@@ -1024,6 +1048,8 @@ Choosing to implement the protocols in C taught me a lot about software developm
 Although DTLSR has met its goals, it could be enhanced further. While it is a much more proactive protocol than LSR, making general predictions about link reliability in the future with a single metric value, we could use more complex pattern recognition to predict exactly when the link will come back up based on what its flapping behaviour has been in the past. This could be implemented with a simple statistical analysis of the uptime history, but could also be extended to use machine learning techniques to detect more complex flapping patterns.
 
 The two protocols could also be tested in an unreliable network environment with real hardware, perhaps even being tested in the field. Given the significant performance advantage shown by DTLSR over LSR in emulated network testing using CORE, it is promising enough that the costs would be worth it. CORE allows real nodes to be connected to the emulated network, reducing the marginal cost of testing in this way as it could be done incrementally, also requiring minimal modification of the protocols.
+
+I hope to look at some of these challenges in future research if the opportunity arises.
 
 
 
