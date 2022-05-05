@@ -186,7 +186,7 @@ However in environments such as developing regions with unreliable network infra
 \section{Delay Tolerant Routing}
 We explore one approach to make traditional routing more `delay-tolerant'. We do this by allowing routing paths to be advertised through down links, and to use a `store-and-forward' mechanism \cite{SAF} for packet forwarding where if the link on the outgoing interface is down, any packets incoming to the router that would be forwarded out on that interface are buffered in-memory by the router, seen in Figure~\ref{fig:saf_down}. When the link comes back up, all of the buffered packets are sent out of the desired interface, seen in Figure~\ref{fig:saf_up}. This maintains end-to-end connectivity as much as possible and decreases the drop rate of packets dramatically.
 
-We see this particularly in Figure~\ref{fig:pathalogical}, a pathalogical case where anti-correlated link failures mean that there is never an end-to-end connection. Traditional routing techniques will drop all packets, but a store-and-forward technique allows packets to actually be delivered.
+We see this particularly in Figure~\ref{fig:pathalogical}, a pathological case where anti-correlated link failures mean that there is never an end-to-end connection. Traditional routing techniques will drop all packets, but a store-and-forward technique allows packets to actually be delivered.
 
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
@@ -226,7 +226,7 @@ When we consider multiple link failures occurring along a path at once, the tota
   \includegraphics[width=1\linewidth]{pathalogical_graph}
   \label{fig:pathalogical_graph}
 \end{subfigure}
-\caption{Pathalogical case with no end-to-end connection}
+\caption{Pathological case with no end-to-end connection}
 \label{fig:pathalogical}
 \end{figure}
 \end{minipage}
@@ -234,9 +234,9 @@ When we consider multiple link failures occurring along a path at once, the tota
 
 \section{Objectives of the Project}
 
-In this project we produce two routing-layer protocols, `Link-State Routing' (LSR) and `Delay-Tolerant Link-State Routing' (DTLSR); we then compare their performance in a number of scenarios that are common in unreliable network environments, focusing on delay and packet delivery rate.
+In this project we produce two routing-layer protocols, `Link-State Routing' (LSR) and `Delay-Tolerant Link-State Routing' (DTLSR); we compare their performance in a number of scenarios that are common in unreliable network environments, focusing on delay and packet delivery rate.
 
-To have control over the behaviour of the protocols both are implemented from scratch in C, with the design based off of the OSPF protocol \cite{OSPF}. We perform the evaluation by running the protocols on an industry-grade network emulator \cite{CORE} that provides a realistic testing environment with full control over the network properties; this is detailed in Section \ref{sec:core}.
+To have control over the behaviour of the protocols both are implemented from scratch in C, with the design based on the OSPF protocol \cite{OSPF}. We perform the evaluation by running the protocols on an industry-grade network emulator \cite{CORE} that provides a realistic testing environment with full control over the network properties; this is detailed in Section \ref{sec:core}.
 
 \subsection{Results}
 
@@ -265,7 +265,7 @@ For our situation this is not necessary. Link failures in a mobile network are u
 
 \chapter{Preparation}
 
-\section{Comparison to Retransmission-based Solutions}
+\section{Comparison to End-to-end Retransmission-based Solutions}
 \label{sec:retransmission}
 
 An alternative solution to the problem of delay-tolerance  is for the source to retransmit packets that it believes have been dropped. This may be done in an end-to-end manner via signalling, such as TCPs fast retransmit, or by timeout in the absence of a signal, such as TCP timeout on the absence of receiving an ACK.
@@ -291,6 +291,14 @@ As well as having a larger delay, we see in the value of $N$ and in the name of 
 
 As shown in the evaluation packet buffering techniques do still have a small number of packet drops and so some end-to-end retransmission is needed, but when the link comes back up we are free to use an explicit signalling technique from the destination endpoint to identify dropped packets, such as TCPs triple-ACKed fast retransmit, minimising the amount of retransmission that the source needs to do.
 
+\section{Link vs Node Failures}
+
+We consider two types of failures, link and node. Link failures prevent two functioning nodes from communicating with each other at the link-level. When no alternate route exists, recovery requires the link to be restored, at which point communication continues as normal.
+
+Node failures are more serious, with nodes often having multiple connections; failure of a central router may disrupt communication between many nodes. Also consider that the link-state representation of the network is stored in memory: a failure causes the loss of information that we have worked hard to propagate across the network. Thus recovery involves not just the node restarting but also reaquiring the link-state from neighbours, increasing recovery time and complexity.
+
+To a neighbour, the symptoms of a failed node are identical to a link failure due to the heartbeat system that we use being disrupted in both cases. Link failures may occur due to wireless interference or faulty cables, and node failures can occur due to intermittent power, 
+
 \section{Common Open Research Emulator (CORE)}
 \label{sec:core}
 
@@ -304,11 +312,11 @@ CORE \cite{CORE} is a network emulator that models nodes as lightweight Unix vir
 \end{minipage}
 \end{center}
 
-Programs can be written for these nodes and run as Unix processes via a Python API. These processes are then able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite \cite{QUAGGA}, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network simple: in Figure~\ref{fig:core_topology} we could run \texttt{ping 10.0.5.10} from the node \texttt{n7}, sending pings between \texttt{n7} and \texttt{n6}.
+Programs can be written for these nodes and run as Unix processes via a Python API. These processes are able to send and receive data through the emulated network via standard Unix socket programming. The emulated routers contain default routing protocol implementations, such as OSPFv2 and v3 from the Quagga protocol suite \cite{QUAGGA}, which can be disabled and replaced by custom implementations. As well as this, standard network testing tools like \texttt{ping} can be run on emulated endpoint hosts, making testing and evaluation of the network simple: in Figure~\ref{fig:core_topology} we could run \texttt{ping 10.0.5.10} from the node \texttt{n7}, sending pings between \texttt{n7} and \texttt{n6}.
 
 Link properties such as delay and loss can be programmatically customised through the Python API. This aids greatly in evaluation, allowing us to simulate network partitions and other network events. In Figure~\ref{fig:core_topology} if we disabled link \texttt{n1-n2} the pings going between \texttt{n7} and \texttt{n6} would have to be rerouted through \texttt{n5} and \texttt{n4}.
 
-An interesting point is that because CORE operates in real-time using the host operating systems clock, the performance of the simulated network is dependent on the performance of the machine it's running on. We therefore take great care to create a reliable and statistically sound testing environment, for example setting processor priority, not running other programs, and taking baseline measurements to compare against. However the clock sharing is also an advantage for evaluation, as when deriving the time between events on different virtual machines we don't need to account for any clock drift; the time difference will be as exact as if they were the same machine. This will make evaluation easier and more accurate, reducing the error.
+An interesting point is that all of the VMs are run in real-time on a single host, sharing the host operating system's clock; the performance of the simulated network is thus dependent on the performance of the machine it's running on. We therefore take great care to create a reliable and statistically sound testing environment, for example setting processor priority, not running other programs, and taking baseline measurements to compare against. However the clock sharing is also an advantage for evaluation, as when deriving the time between events on different virtual machines we don't need to account for any clock drift; the time difference will be as exact as if they were the same machine. This will make evaluation easier and more accurate, reducing the error.
 
 \begin{minipage}{1\textwidth} \centering
 \begin{lstlisting}[label=core_filesystem, frame=tb, caption=Example of a virtualised file-system]
@@ -457,7 +465,7 @@ dtlsr                        Root
 	\texttt{network} contains functionality for socket manipulation, sending data over the network, and packet listening/replay.
 	
 	\item
-	\texttt{process} contains funtionality for interacting with both CORE and the Unix OS, for example retrieving node information, logging, and manipulating the Unix routing table.
+	\texttt{process} contains functionality for interacting with both CORE and the Unix OS, for example retrieving node information, logging, and manipulating the Unix routing table.
 \end{itemize}
 
 The project was implemented almost entirely in C, with CORE-specific scripts in Python.
@@ -471,11 +479,9 @@ The \texttt{src/}, \texttt{include/}, and \texttt{tests/} directory separate cod
 
 The link-state routing protocol that we implemented is split into two programs, \texttt{heartbeat} and LSR.  Routers run both programs, and hosts run only \texttt{heartbeat}.
 
-% JCW: can we havea  diagram showing the heartbeat and LSR?
-% Perhaps with example LSR contents?
 \texttt{heartbeat} sends periodic heartbeat messages to all neighbouring nodes, notifying them that the connecting link is still up. The message is received by LSR. Hosts run \texttt{heartbeat} to notify their gateway router of their existence, so that the router can advertise the corresponding route.
 
-LSR implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends link-state announcements (LSAs) to neighbours in response to detected changes in the network. When we say a link is UP or DOWN we mean the router's logical link-state representation of the network, which is a `lagged' view of its real state. The event loop of LSR is shown in Figure~\ref{fig:flowchart_lsr}, showing responses to different events.
+LSR implements the bulk of the protocol. It maintains the link-state graph representation of the network, manipulates the node's routing table, and sends router link-state announcements (rLSAs)\footnote{Router LSAs contain only the local vicinity of the router in question, network LSAs (detailed in subsection~\ref{subsec:node_failure}) contain the entire network and are used for node recovery.} to neighbours in response to detected changes in the network. When we say a link is UP or DOWN we mean the router's logical link-state representation of the network, which is a `lagged' view of its real state. The event loop of LSR is shown in Figure~\ref{fig:flowchart_lsr}, showing responses to different events.
 
 Changes are detected in one of three ways:
 \begin{enumerate}
@@ -486,28 +492,26 @@ Changes are detected in one of three ways:
 	A heartbeat is not received in time from a neighbour with an UP link. We set the link to be DOWN.
 	
 	\item
-	An LSA is received from a neighbour. If they have any information more recent that ours that causes a change to our network representation when merged in, a change is detected.
+	An rLSA is received from a neighbour. If they have any information more recent that ours that causes a change to our network representation when merged in, a change is detected. If we detect a change then we flood this rLSA to our other neighbours, propagating the update across the network.
 \end{enumerate}
 
-\begin{center}
-\begin{minipage}{0.9\textwidth} \centering
-	\includegraphics[width=1\textwidth]{flowchart_lsr}
+\begin{figure} \centering
+	\includegraphics[width=0.9\textwidth]{flowchart_lsr}
 	\captionof{figure}{Event loop of LSR}
 	\label{fig:flowchart_lsr}
-\end{minipage}
-\end{center}
+\end{figure}
 
 Both programs lend themselves to an event-driven design, and so we used file descriptors multiplexed with the \texttt{select} Unix system call to detect and respond to events. The \texttt{select} call blocks the process from running until one of the specified file descriptors is ready to be used, at which point the OS gives the process back control along with information about which file descriptor is ready. Using this we can implement a coarse event system. As examples, receiving socket file descriptors trigger as `ready' when data has arrived and is ready to be read, and timer file descriptors trigger as `ready' when the timer has expired. One can see how these can be composed to create a responsive distributed protocol that uses system resources efficiently, rather than just spinning waiting for something to happen.
 
-Heartbeats and LSAs are received on sockets with distinct ports, allowing them to be differentiated easily by the Unix socket API at the UDP layer. While these are purely link-level communications and as such do not require UDP or even IP information, the socket API is an easy abstraction to use and allows me to reuse code from other parts of the codebase, minimising the possibility of introducing bugs.
+Heartbeats and rLSAs are received on sockets with distinct ports, allowing them to be differentiated easily by the Unix socket API at the UDP layer. While these are purely link-level communications and as such do not require UDP or even IP information, the socket API is an easy abstraction to use and allows me to reuse code from other parts of the codebase, minimising the possibility of introducing bugs.
 
-A heartbeat message is a UDP packet with only header, no payload. An LSA is a UDP packet whose payload is the sending node's graph representation of the network, simply copied into the payload using \texttt{memcpy}.
+A heartbeat message is a UDP packet with only header, no payload. An rLSA is a UDP packet whose payload is the sending node's graph representation of its immediate network vicinity (it and its neighbours), simply copied into the payload using the \texttt{memcpy} C function.
 
-We send LSAs to our neighbours whenever we detect a change in the network, propagating link-state information as quickly as possible to minimise convergence time. We also send only when we detect changes with respect to our knowledge of the network so that we don't cause infinite looping of updates.
+We use a triggered update system, sending rLSAs to our neighbours whenever we detect a change in the network;  this propagates link-state information as quickly as possible to minimise convergence time. We also send only when we detect changes with respect to our knowledge of the network so that we don't cause infinite looping of updates.
 
 \subsection{Graph Merging}
 
-On receiving an LSA from a neighbour, we must carefully merge the neighbour's representation of the network into our own, only taking the most recent information. We see in Figure~\ref{fig:lsa} an example of a merge, where node A receives an LSA from node B, and merges it in to get the most up-to-date view of the network. Blue nodes and links are from A, and yellow ones are from B, showing in the output graph which nodes and links were taken from whos graph.
+On receiving an LSA from a neighbour, we must carefully merge the neighbour's representation of the network into our own, only taking the most recent information. We see in Figure~\ref{fig:lsa} an example of a merge, where node A receives an LSA from node B, and merges it in to get the most up-to-date view of the network. Blue nodes and links are from A, and yellow ones are from B, showing in the output graph which nodes and links were taken from whose graph.
 
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
@@ -527,7 +531,7 @@ We have two levels of representation for our network representation: a minimal g
 
 For each node in the global graph, we store for each link information like the source IP, neighbour destination IP, the status of the link, the derived metric associated with the link, and a timestamp specifying how old our knowledge of that link is, for merging purposes.
 
-The local graph consists solely of our node along with more in-depth information about links connecting us to our immediate neighbours. Along with all of the information contained in a global node, we also have for each link a timer for timing out heartbeats and the interface which that link goes out on. We take the locally-derived information and feed it into the global graph, which then gets shared with the rest of the network via LSAs.
+The local graph consists solely of our node along with more in-depth information about links connecting us to our immediate neighbours. Along with all of the information contained in a global node, we also have for each link a timer for timing out heartbeats and the interface which that link goes out on. We take the locally-derived information and feed it into the global graph, which we then disseminate to the rest of the network via LSAs.
 
 The data structures for each are detailed in full in Listing~\ref{node_data_structs}. A partial example is shown in Figure~\ref{fig:node_ex}, with the fields of node \texttt{n1} described in detail in Listing~\ref{node_ex_listing}. The global graph is an array of \texttt{Node}s, and the local graph is a single instance of \texttt{LocalNode}, representing ourselves.
 
@@ -582,13 +586,16 @@ typedef struct local_node {
 
 \subsection{Route Generation}
 
-We generate routes from the link-state graph, computing shortest paths from ourself to every other node using Dijkstra's algorithm. From each shortest path we get the next-hop node, which we add to the routing table along with the destination IP subnet so that the router knows where to forward incoming packets. Along with adding new routes we also delete old stale routes, which have either been made obsolete by a new, better route, or do not exist anymore due to failure.
+We generate routes from the link-state graph, computing shortest paths from ourself to every other node using Dijkstra's algorithm. From each shortest path we get the next-hop node, which we add to the forwarding table along with the destination IP subnet so that the router knows where to forward incoming packets. Along with adding new routes we also delete old stale routes, which have either been made obsolete by a new, better route, or do not exist anymore due to failure.
 
-Dijkstra's algorithm computes paths on a weighted graph, allowing us to choose a metric to judge links against each other. Traditional OSPF uses a bandwidth-based metric, but we chose to use the number of hops in the path instead, as delay is more important than throughput in delay-tolerant networks.
+Dijkstra's algorithm solves the single-source all-destinations shortest path problem for graphs with non-negative weights, allowing us to choose a metric to judge links against each other. The metric must be additive for `shortest' to be meaningful. Traditional OSPF uses a bandwidth-based metric, but we chose to use the number of hops in the path instead, as delay is more important than throughput in delay-tolerant networks.
 
-With many destinations we have a large number of routing table entries, but we can reduce this by aggregating routes together that share an outgoing interface and IP prefix. As the routing table operates by prefix matching, we only need to insert the shared prefix into the table, reducing the number of entries required greatly.
+With many destinations we have a large number of forwarding table entries, but we can reduce this by aggregating routes together that share an outgoing interface and IP prefix. As the forwarding table operates by prefix matching, we only need to insert the shared prefix into the table, reducing the number of entries required greatly.
 
 Manipulation of the Unix routing table is done through \texttt{ioctl}, a system call for interacting with OS devices through a file descriptor interface. We pass a flag corresponding to route addition or deletion, along with a `\texttt{route}' struct containing the route details.
+
+\subsection{Recovery from Node Failure}
+\label{subsec:node_failure}
 
 \section{Delay-Tolerant Modifications}
 \label{sec:dtlsr_design}
@@ -644,7 +651,7 @@ If an outgoing link from a router is down, in our delay-tolerant context the rou
 
 We use the \texttt{tcpdump} tool for interface listening. When a router knows a connected link is down, it starts listening on all interfaces and dumping received packets to a \texttt{pcap} file, according to a packet filter that only dumps packets going to an IP address that we route to via the down interface. We see this in the example in Figure~\ref{fig:ip_route}, where the router buffers traffic en-route to the \texttt{10.0.2.0/24} or \texttt{10.0.3.0/24} subnets, as specified by the packet filter. Packets en-route to subnet \texttt{10.0.1.0/24} are forwarded like normal, without buffering.
 
- \texttt{tcpdump} is interacted with via the \texttt{libpcap} C library linked in statically with the executable, with the packet filter programmed using the Berkeley Packet Filter (BPF) language. An important optimisation is to place this \texttt{pcap} file on a RAM disk to maximise throughput and minimise latency that can occur when storing files on an SSD or HDD.
+We interact with \texttt{tcpdump} via the \texttt{libpcap} C library linked in statically with the executable, with the packet filter programmed using the Berkeley Packet Filter (BPF) language \cite{STEVEN1993}. An important optimisation is to place this \texttt{pcap} file on a RAM disk to maximise throughput and minimise latency that can occur when storing files on an SSD or HDD.
 
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
@@ -654,7 +661,7 @@ We use the \texttt{tcpdump} tool for interface listening. When a router knows a 
 \end{minipage}
 \end{center}
 
-When the link comes back up, we stop listening for packets and dumping them to the file, and close the file. From now incoming packets are being sent onto the link correctly so we don't want to duplicate data by buffering then resending it. We make use of a command-line tool, \texttt{tcpreplay}, which allows packets from \texttt{pcap} files to be replayed out of  an interface. We see the command-line call in Listing~\ref{replay_command}. We do this, and then delete the file. Described here is the case of a single failing link, but when multiple links are concurrently failing and coming back up we of course need to be more careful about listening for and replaying only the right data.
+When the link comes back up, we stop listening for packets and dumping them to the file, and close the file. From now incoming packets are being sent onto the link correctly, so we don't want to duplicate data by buffering then resending it. We make use of a command-line tool, \texttt{tcpreplay}, which allows packets from \texttt{pcap} files to be replayed out of  an interface. We see the command-line call in Listing~\ref{replay_command}. We do this, and then delete the file. Described here is the case of a single failing link, but when multiple links are concurrently failing and coming back up we of course need to be more careful about listening for and replaying only the right data.
 
 \begin{lstlisting}[label=replay_command, caption=\texttt{tcpreplay} command with explanation of arguments, frame=tb]
 tcpreplay --topspeed -ieth0 input.pcap
@@ -665,17 +672,17 @@ input.pcap - .pcap file to read packets from
 \end{lstlisting}
 
 % JCW yeah it's a full research project -- a citation would be good ifyou have one.
-We chose to use existing tools for packet buffering due to the complexity of this problem, as well as issues with reliability. Even a mature and tested tool like \texttt{tcpdump} still cannot catch all incoming packets at higher speeds; we would have no hope of implementing a suitable alternative in the time we had, and it would likely be a part II project in its own right.
+We chose to use existing tools for packet buffering due to the complexity of this problem, as well as issues with reliability. Even a mature and tested tool like \texttt{tcpdump} still cannot catch all incoming packets at higher speeds; we would have no hope of implementing a suitable alternative in the time we had and it would likely be a part II project in its own right.
 
 \subsection{Link Metric}
 
-We need some metric to be able to judge the expected delay of a link, in order to compare it to a stable backup link that we can switch onto when appropriate, to minimise the overall delay. This alternative metric is needed only when the link is down, as this is the case when we would want to switch. When the link comes back up we want to send out our buffered packets as quickly as possible, so a metric with some level of hysteresis as we describe below is inappropriate. Through testing it is far more effective to immediately fall back to the standard hop-count metric once the link comes back up.
+We need some metric to be able to judge the expected delay of a link, in order to compare it to a stable backup link that we can switch onto when appropriate, to minimise the overall delay. This alternative metric is needed only when the link is down, as this is the case when we would want to switch. When the link comes back up we want to send out our buffered packets as quickly as possible, so a metric with some level of hysteresis as we describe below is inappropriate. Through testing, it is far more effective to immediately fall back to the standard hop-count metric once the link comes back up.
 
 Assuming that the link will come back up, not switching to the backup link will have no effect on delivery rate as the packets will be buffered, and will reach their destination eventually. However we want to do this in order to reduce the average delay that packets experience, where waiting for the link to come back up will take longer than simply sending via the backup route. We want some level of hysteresis for this so that if failures are historically rare and short-lived, we stick to the primary link.
 
 We use a metric based on the uptime history of the link, computing an integral over the history after exponentially weighting it, as we can see in Figure~\ref{fig:metric}. Integrating over the uptime history tells us how often the link is up, giving us some idea of its reliability over time, and the exponential weighting gives more importance to recent events, making it more responsive. The parameters to the exponential weighting allow us to tune its responsiveness.
 
-Equation~\ref{eq:metric_integral} shows how we compute the integral over one UP period, between times $t_0$ and $t_1$. Our falloff parameter $\alpha$ tunes the metric's responsiveness to changing conditions, increasing it increases the falloff. We compute this integral over each of the UP periods, summing the results together in Equation~\ref{eq:metric_sum} to give us $F$.
+Equation~\ref{eq:metric_integral} shows how we compute the integral over one UP period, between times $t_0$ and $t_1$. Our falloff parameter $\alpha$ tunes the metrics responsiveness to changing conditions, increasing it increases the falloff. We compute this integral over each of the UP periods, summing the results together in Equation~\ref{eq:metric_sum} to give us $F$.
 
 \begin{equation} \label{eq:metric_integral}
 F(t_0, t_1) = \int_{t_0}^{t_1} f(t)dt = e^{\alpha \cdot t_1} - e^{\alpha \cdot t_0}
@@ -780,10 +787,10 @@ In the graphs in Figure~\ref{fig:conv} we see the time between the event occurri
 
 Hop counts of 1 and above rely on the network-layer section of the protocol, with link-state information being sent from node to node. As LSAs are propagated as soon as they are received, we are bounded mainly by the link delay, which we can see in the difference between the higher hop counts of~\ref{fig:conv_1ms} and~\ref{fig:conv_100ms}. In~\ref{fig:conv_1ms} the delay is so small as for each subsequent hop to be almost indistinguishable from the last, but in~\ref{fig:conv_100ms} we see the delay increasing the convergence time for each hop cumulatively, for both UP and DOWN events.
 
-It is interesting to note that subsequent hops depend on the cumulative time added by all previous hops, due to propagation. As the difference between up and down remains close-to constant after the zero-hop node, we can conclude that the network-layer behaviour is the same for up and down, explained by them both depending on the same LSA propagation system.
+It is interesting to note that subsequent hops depend on the cumulative time added by all previous hops, due to propagation. As the difference between up and down remains close to constant after the zero-hop node, we can conclude that the network-layer behaviour is the same for up and down, explained by them both depending on the same LSA propagation system.
 
 
-\section{Delay}
+\section{Delay: Link Failures}
 
 The main body of the evaluation is comparing the distribution of round-trip packet delays for LSR and DTLSR in a number of different network environments, varying topology and failure mode. This demonstrates the different properties of the routing algorithms, showing advantages and disadvantages of both.
 
@@ -822,16 +829,16 @@ Firstly we have a topology with a single central connecting link, \texttt{n1-n2}
 \begin{subfigure}{.8\textwidth}
   \centering
   \hspace*{1.1cm}
-  \includegraphics[width=1\linewidth]{delay_partition_flap2_20}
-  \caption{Flapping with period $T=\SI{22}{\s}$ (\SI{2}{\s} up, \SI{20}{\s} down).}
-  \label{fig:partition_2_20}
+  \includegraphics[width=1\linewidth]{delay_partition_flap2_18}
+  \caption{Flapping with period $T=\SI{20}{\s}$ (\SI{2}{\s} up, \SI{18}{\s} down).}
+  \label{fig:partition_2_18}
 \end{subfigure}
 
 \caption{Cumulative distributions of round-trip delay}
 \label{fig:partition}
 \end{figure}
 
-The results are shown in Figure~\ref{fig:partition}, as cumulative distributions of round-trip delay between \texttt{n5} and \texttt{n6} under different routing algorithms, while flapping link \texttt{n1-n2}. We see in both cases that LSR successfully delivers a proportion of packets approximately the same as that of the uptime proportion of the link, in Figure~\ref{fig:partition_20} it is up half of the time so we get 50\% delivery, and in Figure~\ref{fig:partition_2_20} it is up one tenth of the time so we get a 9\% delivery rate. We can attribute the 1\% discrepancy to packet drops that will be explained below. DTLSR achieves a drastically higher delivery ratio in both cases due to packets being buffered at the router before the failure, then forwarded on when it comes back up.
+The results are shown in Figure~\ref{fig:partition}, as cumulative distributions of round-trip delay between \texttt{n5} and \texttt{n6} under different routing algorithms, while flapping link \texttt{n1-n2}. We see in both cases that LSR successfully delivers a proportion of packets approximately the same as that of the uptime proportion of the link, in Figure~\ref{fig:partition_20} it is up half of the time, so we get 50\% delivery, and in Figure~\ref{fig:partition_2_18} it is up one tenth of the time, so we get a 10\% delivery rate. DTLSR achieves a drastically higher delivery ratio in both cases due to packets being buffered at the router before the failure, then forwarded on when it comes back up.
 
 In both plots the packets can be split into two groups. For the first group both LSR and DTLSR have a constant delay of \SI{6}{\ms}. For LSR the second group of packets are dropped, whereas for DTLSR their delay increases linearly (showing as an exponential curve in the $\log x$-$y$ graph). The first group is due to the link being up the described proportion of the time of the time, so all packets sent in this period take approximately the same time to arrive, taking a round-trip journey over three links (\texttt{n5-n1-n2-n6}) each of \SI{1}{\ms} delay. The second group is a little more subtle, and is due to the packet buffering and replaying behaviour. \texttt{ping} sends packets at a constant interval but the buffered packets are replayed all at once when the link comes back up, thus the earlier that a ping is sent in the link-down period, the greater time delay there will be between the client sending the packet and receiving a reply.
 
@@ -853,7 +860,7 @@ This network topology is consistent with those seen in remote regions even in de
 
 \subsection{Full Partition Topology}
 
-Our second topology shown in Figure~\ref{fig:full_partition_topology} is similar to the above `partition' topology, but instead partitions the network with two links in sequence that have anti-correlated failures as shown in Figure~\ref{fig:full_partition_graph} --- when one is up, the other is down. Thus there is never any end-to-end connection and the network is technically always partitioned, but using the `store-and-forward' mechanism some packet delivery can be achieved. This is not as ridiculous a case as it may seem. If a region has unreliable or limited power, there may only be sufficient power to turn on a subset of the routers at a time, likely in an unpredictable pattern.
+Our second topology shown in Figure~\ref{fig:full_partition_topology} is similar to the above `partition' topology, but instead partitions the network with two links in sequence that have anti-correlated failures as shown in Figure~\ref{fig:full_partition_graph} --- when one is up, the other is down. Thus, there is never any end-to-end connection and the network is technically always partitioned, but using the `store-and-forward' mechanism some packet delivery can be achieved. This is not as ridiculous a case as it may seem. If a region has unreliable or limited power, there may only be sufficient power to turn on a subset of the routers at a time, likely in an unpredictable pattern.
 
 \begin{figure}[H]
 \centering
@@ -904,7 +911,7 @@ It's interesting to note that we also see an approximately proportional increase
 
 \subsection{Box Topology}
 
-Our third topology shown in Figure~\ref{fig:box} is a `box'-shaped one, where we have a low-delay main route and a higher delay backup route when the main one goes down. In this example \texttt{n3-n4} is the main link that we flap, and \texttt{n3-n5-n6-n4} is our higher-delay backup route. The backup link \texttt{n5-n6} has a delay of \SI{10}{\ms}. Thus from \texttt{n1} to \texttt{n2}, our main route has a round-trip delay of \SI{6}{\ms} and our backup route has a round-trip delay of \SI{28}{\ms}.
+Our third topology shown in Figure~\ref{fig:box} is a `box'-shaped one, where we have a low-delay main route and a higher delay backup route when the main one goes down. In this example \texttt{n3-n4} is the main link that we flap, and \texttt{n3-n5-n6-n4} is our higher-delay backup route. The backup link \texttt{n5-n6} has a delay of \SI{10}{\ms}, and as usual all other links have a delay of \SI{1}{\ms}. Thus from \texttt{n1} to \texttt{n2}, our main route has a round-trip delay of \SI{6}{\ms} and our backup route has a round-trip delay of \SI{28}{\ms}.
 
 \begin{minipage}{1\textwidth} \centering
 	\includegraphics[width=0.6\textwidth]{delay_box_topology}
@@ -934,43 +941,21 @@ Our third topology shown in Figure~\ref{fig:box} is a `box'-shaped one, where we
 
 We see in both cases in Figure~\ref{fig:box} that LSR successfully switches to the backup link whenever the main link goes down, shown by a large proportion of packets having an RTT of approximately \SI{28}{\ms}. As described above, it takes time for the protocol to detect that the link is down and to respond by modifying the routing table, which causes packet losses. Increasing the flapping frequency increases the number of these boundary periods, thus increasing the proportion of time dropping packets. This is reflected in the higher proportion of packets being dropped with a shorter flapping period for LSR in Figure~\ref{fig:box_2}.
 
-We again see that DTLSR achieves a higher proportion of delivered packets than LSR. While it is a lot closer than in the partition topology, there is still a marked difference. DTLSR uses its metric to judge the failed link in comparison to the backup link, switching onto it as shown by DTLSR also having a large portion of packets having a delay of around \SI{28}{\ms}. DTLSR is slightly slower to switch the route due to the metrics hysteresis, shown by LSR having a slightly higher proportion of packets with \SI{28}{\ms}. However DTLSR ends up with a higher delivery rate overall due to the packet buffering, shown on the top right of each of the graphs.
+We again see that DTLSR achieves a higher proportion of delivered packets than LSR. While it is a lot closer than in the partition topology, there is still a marked difference. DTLSR uses its metric to judge the failed link in comparison to the backup link, switching onto it as shown by DTLSR also having a large portion of packets having a delay of around \SI{28}{\ms}. DTLSR is slightly slower to switch the route due to the metric's hysteresis, shown by LSR having a slightly higher proportion of packets with \SI{28}{\ms}. However DTLSR ends up with a higher delivery rate overall due to the packet buffering, shown on the top right of each of the graphs.
 
 As stated above this kind of topology is uncommon in remote and developing regions due to the cost of adding backup links. However it is useful to contrast LSR and DTLSR and show that even with other hardware solutions to failure, DTLSR still has a competitive advantage over LSR in delivery rate.
 
-%\section{TCP}
+\section{Delay: Router Failures}
 
-%In this section we compare how LSR and DTLSR support a TCP session running over an unreliable network. We re-use the `partial partition' topology as seen in Figure~\ref{fig:partition_topology}, and have the central link flapping with a period of $T=\SI{4}{\s}$ (\SI{2}{\s} up, \SI{2}{\s} down). Each link has a maximum bitrate of \SI{100}{Gbps}, which is important for working out how well the links are utilised by TCP.
 
-%We test using the \texttt{iperf3} command-line tool \cite{IPERF}, which tests the performance of a network using TCP; one node is designated as the client, sending data, and one as the server, receiving the data and sending back ACKs. \texttt{iperf3} periodically reports derived metrics of the session, for example throughput, TCP window size, and the number of retries.
+\begin{figure} \centering
+	\includegraphics[width=0.8\textwidth]{delay_node_flap20}
+	\captionof{figure}{}
+	\label{fig:delay_node_flap20}
+\end{figure}
 
-%\subsection{Results}
 
-%We see in Figure~\ref{fig:tcp_bar} three important metrics to compare LSR and DTLSR. The first is the comparative proportion of retries that the TCP session must do when running over each protocol; we see that DTLSR creates far fewer retries than LSR, explained by DTLSR buffering packets when the link is down then forwarding them on when it comes up, rather than just dropping them and requiring that they be retransmitted. This is a significant advantage for DTLSR as it puts far less computational strain on the sending host, and makes more efficient utilisation of the networks bandwidth.
 
-%The second important metric is the mean bitrate, supported by the peak bitrate. We see that DTLSR has a competitive advantage over LSR in mean throughput, being 22\% higher, resulting in more data transferred over time.
-
-%Thirdly, the peak bitrate gives us some information about the growth rate of the throughput, telling us what bitrate was achieved before the link went down again. We note that while LSR achieves a higher peak rate than DTLSR, neither get anywhere close to the \SI{100}{Gbps} limit of the link. This is because the slow linear growth of TCPs throughput is thrashed by the frequent link flapping, never allowing it to saturate the link. We thus see that TCP fundamentally has difficulty running in an unreliable network environment.
-
-%\begin{figure}[htb]
-%  \centering
-%  \includegraphics[width=0.75\linewidth]{tcp_bar_flap2}
-%  \caption{Comparison of LSR and DTLSR for a number of TCP session characteristics}
-%  \label{fig:tcp_bar}
-%\end{figure}
-
-%\begin{figure}[htb]
-%  \centering
-%  \includegraphics[width=0.6\linewidth]{tcp_throughput_flap2}
-%  \caption{CDF of bitrate for the TCP session}
-%  \label{fig:tcp_throughput}
-%\end{figure}
-
-%Figure~\ref{fig:tcp_throughput} shows us how TCPs throughput varies over time on both LSR and DTLSR, shown as a cumulative distribution. LSR has a somewhat expected curve, as we see the linear stepping increase from 0.8 to 1.0 which represents the linear growth in TCPs steady state. Of concern is that this growth starts only at 0.8, when one would expect it to start at 0.5 given that the link is up half of the time. This may be caused by TCP depending on feedback from the receiving endpoint to start increasing its window size, significantly delaying transmission.
-
-%DTLSR's curve is more complex, showing a start to the throughput increase closer to the 0.5 point that we want. The `\textbf{s}' curve is likely caused by the interaction between the packet buffering system and TCPs feedback mechanism for increasing its window size. The first sharp jump in bitrate around 0.6 may be caused by the sudden arrival of a large number of buffered packets at the receiving endpoint when the link comes back up, generating a large number of ACKs which then quickly increase the window size. This causes the host to transmit a large number of packets in quick succession, which then feeds into the slower throughput build-up we see the DTLSR curve undergo.
-
-%We see from the curve in Figure~\ref{fig:tcp_throughput} that DTLSR has a more consistent throughput, being close to its mean value more of the time. We compare it to LSR's curve which varies a lot more. This consistency is a benefit for the network as a whole, as it makes congestion more predictable when we have a number of TCP sessions running concurrently.
 
 \section{TCP Throughput in Unreliable Contexts}
 \label{sec:tcp}
