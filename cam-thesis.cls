@@ -519,12 +519,64 @@ Date \emph{\@date{}}\\
 
 % Cambridge thesis submission guidelines require the title and author be in the abstract.
 % For more info see https://www.cambridgestudents.cam.ac.uk/your-course/examinations/graduate-exam-information/after-examination/degree-approval-and-1
-\textbf{\large \@title}
-\par\vspace{0.3cm}
-\noindent\textit{\@author}
-\par\vspace{0.6cm}
+%\textbf{\large \@title}
+%\par\vspace{0.3cm}
+%\noindent\textit{\@author}
+%\par\vspace{0.6cm}
 
-\@abstract{}
+%\@abstract{}
+
+\large
+\textbf{Candidate Number:}  \\
+\textbf{Project Title:} Delay-Tolerant Link-State Routing \\
+\textbf{Examination:} Computer Science Tripos, Part II (June 2022) \\
+\textbf{Word count\footnote{Using TeXcount - \url{https://app.uio.no/ifi/texcount/}}:} 9809 \\
+\textbf{Line count\footnote{Using cloc - \url{https://github.com/AlDanial/cloc}}:}
+
+\begin{table}[H]
+\begin{tabular}{@{}p{0.2\textwidth}rr@{}}\toprule
+\textbf{Section} & \textbf{Files} & \textbf{Code} \\
+\midrule
+\midrule
+\textbf{DTLSR} & & \\
+\midrule
+C & 58 & 4076 \\\addlinespace[0.2em]
+Python & 5 & 510 \\\addlinespace[0.2em]
+\midrule
+\midrule
+\textbf{Data Analysis} & & \\
+\midrule
+Python & 11 & 488 \\\addlinespace[0.2em]
+\midrule
+\midrule
+SUM & 74 & 5074 \\
+\bottomrule
+\end{tabular}
+%\label{table:requirements}
+\end{table}
+
+\textbf{Project Originator:} The dissertation author \\
+\textbf{Supervisor:} Jackson Woodruff \\
+
+\normalsize
+
+\pagebreak
+
+\LARGE\textbf{Original Aims of the Project}\normalsize
+
+This project aims to implement LSR, a link-state routing protocol and make delay-tolerant modifications to produce DTLSR in order to investigate how both protocols perform in unreliable network conditions involving link and node failures. We aim to maximise the packet delivery rate, and to minimise the end-to-end packet delay.
+
+\vspace{8mm}
+\LARGE\textbf{Work Completed}\normalsize
+
+The project was a great success. LSR and DTLSR were implemented successfully and run on the network emulator. All success criteria were met and the evaluation showed that DTLSR has a significant advantage over LSR for packet delivery on a wide variety of unreliable networks.
+
+\vspace{8mm}
+\LARGE\textbf{Special Difficulties}\normalsize
+
+None.
+
+
 \fi
 
 

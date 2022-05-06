@@ -65,7 +65,8 @@
 \usepackage{wrapfig}
 \usepackage{listings}
 
-\usepackage[numbers]{natbib}
+%\usepackage[numbers]{natbib}
+\usepackage[nottoc,notlot,notlof]{tocbibind}
 \bibliographystyle{unsrtnat}
 
 \lstset{
@@ -92,6 +93,7 @@
 \newcommand{\R}{\mathbb{R}}
 \newcommand{\Q}{\mathbb{Q}}
 \newcommand{\N}{\mathbb{N}}
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Thesis meta-information
@@ -179,7 +181,7 @@ Traditional routing protocols such as OSPF treat failures as final, making the a
 
 
 % JCW: s/can drop/drops/ (You have the results that show this later!)
-However in environments such as developing regions with unreliable network infrastructure, partitions due to temporary link failures are a common occurrence. In this case the performance of traditional routing protocols drops dramatically, in some cases preventing any end-to-end communication entirely. Retransmission-based solutions such as TCP can somewhat help this but make inefficient use of network resources and can cause large packet delays, as we describe in Section~\ref{sec:retransmission}. The routing protocols used in these situations must be designed to compensate for these failures in order to provide good service.
+However in environments such as developing regions with unreliable network infrastructure, partitions due to temporary link failures are a common occurrence. In this case the performance of traditional routing protocols drops dramatically, in some cases preventing any end-to-end communication entirely. Retransmission-based solutions such as TCP can somewhat help this but make inefficient use of network resources and can cause large packet delays, as we describe in section~\ref{sec:retransmission}. The routing protocols used in these situations must be designed to compensate for these failures in order to provide good service.
 
 %JCW: is 'One appraoch' your implemented approach?  If so say -- it's not clear to me why I should care about this otherwise.
 % If it is your approach we should draw more attention to it --- subsection here
@@ -236,19 +238,19 @@ When we consider multiple link failures occurring along a path at once, the tota
 
 In this project we produce two routing-layer protocols, `Link-State Routing' (LSR) and `Delay-Tolerant Link-State Routing' (DTLSR); we compare their performance in a number of scenarios that are common in unreliable network environments, focusing on delay and packet delivery rate.
 
-To have control over the behaviour of the protocols both are implemented from scratch in C, with the design based on the OSPF protocol \cite{OSPF}. We perform the evaluation by running the protocols on an industry-grade network emulator \cite{CORE} that provides a realistic testing environment with full control over the network properties; this is detailed in Section \ref{sec:core}.
+To have control over the behaviour of the protocols both are implemented from scratch in C, with the design based on the OSPF protocol \cite{OSPF}. We perform the evaluation by running the protocols on an industry-grade network emulator \cite{CORE} that provides a realistic testing environment with full control over the network properties; this is detailed in section~\ref{sec:core}.
 
 \subsection{Results}
 
 \begin{minipage}{1\textwidth}
 
-DTLSR greatly decreases the drop rate of packets over networks with frequent partitions. We show an example in Figure~\ref{fig:partition_2_20}, a case where the network is partitioned 90\% of the time; DTLSR achieves more than 10 times the delivery rate of LSR. Even when a higher-delay backup link exists which LSR can switch onto, our evaluation shows that DTLSR still reduces the packet drop rate by at least half. We experimentally show cases with multiple link failures where LSR achieves zero packet delivery, but DTLSR delivers more than 70\% of packets. We also show that DTLSR has a large advantage over LSR when running under TCP, increasing the mean bitrate and drastically reducing the relative number of packet retransmissions.
+DTLSR greatly decreases the drop rate of packets over networks with frequent partitions. We show an example in Figure~\ref{fig:partition_2_18}, a case where the network is partitioned 90\% of the time; DTLSR achieves more than 10 times the delivery rate of LSR. Even when a higher-delay backup link exists which LSR can switch onto, our evaluation shows that DTLSR still reduces the packet drop rate by at least half. We experimentally show cases with multiple link failures where LSR achieves zero packet delivery, but DTLSR delivers more than 70\% of packets. We also show that DTLSR has a large advantage over LSR when running under TCP, increasing the mean bitrate and drastically reducing the relative number of packet retransmissions.
 
 \begin{figure}[H]
   \centering
   \hspace*{2.4cm}
-  \includegraphics[width=0.8\linewidth]{delay_partition_flap2_20}
-  \repeatcaption{fig:partition_2_20}{Comparison of LSR and DTLSR delay and delivery rate}
+  \includegraphics[width=0.8\linewidth]{delay_partition_flap2_18}
+  \repeatcaption{fig:partition_2_18}{Comparison of LSR and DTLSR delay and delivery rate}
 \end{figure}
 
 \end{minipage}
@@ -432,7 +434,7 @@ The concepts and algorithms required for the dissertation were mostly covered in
 
 \chapter{Implementation}
 
-This chapter discusses the implementation of two routing protocols, LSR and DTLSR. The initial design of LSR is described in Section~\ref{sec:lsr_design}, and the modifications made to produce DTLSR are described in Section~\ref{sec:dtlsr_design}. Each protocol is composed of link-layer systems for detecting link failure and links coming back up, integration of this information into an internal graph representation of the network, and a network-layer mechanism for propagating this information over the entire network.
+This chapter discusses the implementation of two routing protocols, LSR and DTLSR. The initial design of LSR is described in section~\ref{sec:lsr_design}, and the modifications made to produce DTLSR are described in section~\ref{sec:dtlsr_design}. Each protocol is composed of link-layer systems for detecting link failure and links coming back up, integration of this information into an internal graph representation of the network, and a network-layer mechanism for propagating this information over the entire network.
 
 Also implemented is a way for each router to use this information to generate shortest paths to every other node, aggregating this information to modify the routing table accordingly. Significant effort was put into the delay-tolerant modifications in DTLSR, with a local packet buffering system for link-failure tolerance, and a sophisticated metric for comparing the reliability of links when alternate routes exist.
 
@@ -517,15 +519,13 @@ When a node crashes, it loses all of its knowledge about the graph. On rebooting
 
 On rebooting a node sends to all of its neighbours an nLSA request, and each neighbour responds by sending back its own nLSA. These nLSAs are merged together to get the most up-to-date view of the network, we generate the correct routes and then update the forwarding table.
 
-\subsection{Graph Merging}
-
-\subsubsection{Router LSA Merging}
+\subsection{Graph Merging: Router LSAs}
 
 An rLSA contains information only about the immediate vicinity of the router, represented by a single \texttt{Node} in our representation; merging this information into our graph is thus very simple. We first compare the timestamps of our stored node and rLSA node: if ours is more recent we do nothing, we have received stale information. If the rLSA node is more recent then we first relay the rLSA to all of our other neighbours to propagate the change through the network, and then copy the data in the node into our own graph, incorporating the new information.
 
 To allow merging to be simple we treat every node as independent, in particular having the node's list of neighbours included in the node's data structure rather than having a separate list of links indexed by 2-tuples of node IDs. While this doubles the memory cost of a link as we represent it with two directed edges rather than a single undirected one, it means that merging becomes a simple independent pairwise comparison between nodes of the same ID to pick the one with the most recent timestamp, which has an $O(n)$ time complexity in the number of nodes in the graph.
 
-\subsubsection{Network LSA Merging}
+\subsection{Graph Merging: Network LSAs}
 
 A network LSA (nLSA) contains a router's full view of the network, and so merging becomes more involved to make sure we only take the most recent information. We see in Figure~\ref{fig:lsa} an example of a merge, where node A receives an nLSA from node B, and merges it in to get the most up-to-date view of the network. Blue nodes and links are from A, and yellow ones are from B, showing in the output graph which nodes and links were taken from whose graph.
 
@@ -951,7 +951,7 @@ As stated above this kind of topology is uncommon in remote and developing regio
 
 \section{Delay: Node Failures}
 
-As detailed in section~\ref{sec:link_vs_node_failures}, we must also consider the effects of router failures on the delay of packets through the network, as their recovery process is a little different to link failures. We evaluate using the topology described in Figure~\ref{fig:node_partition_topology}, periodically shutting down and restarting the node \texttt{n7} with period $T=40$ (\SI{20}{\s} up, \SI{20}{\s} down). When the node is down the network is partitioned, as in the topology in subsection~\ref{subsec:partial_partition}.
+As detailed in section~\ref{sec:link_vs_node_failures}, we must also consider the effects of router failures on the delay of packets through the network, as their recovery process is a little different to link failures. We evaluate using the topology described in Figure~\ref{fig:node_partition_topology}, periodically shutting down and restarting the node \texttt{n7} with period $T=40$ (\SI{20}{\s} up, \SI{20}{\s} down). When the node is down the network is partitioned, similarly to the topology in subsection~\ref{subsec:partial_partition}.
 
 \begin{figure}[H]
   \centering
@@ -964,7 +964,7 @@ As detailed in section~\ref{sec:link_vs_node_failures}, we must also consider th
 
 We see identical behaviour to the results of link failure in Figure~\ref{fig:partition_20}, with LSR achieving 50\% delivery rate consistent with the router being up half of the time, and DTLSR achieving a much higher 98\% delivery rate due to the packet buffering at \texttt{n1} and \texttt{n2}. The 2\% packet loss is again due to \texttt{n1} and \texttt{n2} only detecting the down node after the heartbeat timeout period.
 
-That node failure under DTLSR has an almost identical delay graph to link failure is a great
+That node failure under DTLSR has an almost identical delay graph to link failure is great experimental evidence that the nLSA request mechanism is working not just correctly, but quickly enough that it makes a negligible difference to packet delay.
 
 \begin{figure}[H] \centering
 	\includegraphics[width=0.8\textwidth]{delay_node_flap20}
@@ -993,7 +993,7 @@ We see also that DTLSR has a slightly lower bitrate than LSR. I predict that thi
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.8\linewidth]{tcp_bar_flap5_30}
-  \caption{}
+  \caption{Throughput of TCP over unreliable network}
   \label{fig:tcp_5_30}
 \end{figure}
 
@@ -1004,7 +1004,7 @@ In both of the analyses described above, we see that TCP has an inherent weaknes
 
 This chapter shows that DTLSR is an effective protocol for improving the delay and packet delivery in an unreliable network environment.
 
-In particular, DTLSR has a strong advantage over LSR in maximising packet delivery in sparsely connected, unreliable networks, especially when link failures cause network partitions. Even when backup links exist, DTLSR is shown to reduce the drop rate of packets by around half compared to LSR. DTLSR's largest advantage is shown in networks with correlated link failures leading to no end-to-end connection, providing a delivery rate upwards of 70\% compared to LSR providing no communication whatsoever.
+In particular, DTLSR has a strong advantage over LSR in maximising packet delivery in sparsely connected, unreliable networks, especially when link failures cause network partitions. We see further that the data loss caused by node failures has negligible impact on delays, thanks to the nLSA request mechanism. Even when backup links exist, DTLSR is shown to reduce the drop rate of packets by around half compared to LSR. DTLSR's largest advantage is shown in networks with correlated link failures leading to no end-to-end connection, providing a delivery rate upwards of 70\% compared to LSR providing no communication whatsoever.
 
 We also see that the session-layer protocol running above the routing layer is critically important for taking advantage of the delay-tolerant characteristics in a real scenario. The commonly-used TCP responds badly to the inherent instability of a network like this, and so an awareness of the network stack as a whole is crucial.
 
@@ -1017,7 +1017,7 @@ The project has been a complete success, fully meeting the initial goals and sur
 
 \section{Achievements}
 
-As described in Chapter~\ref{chapter:evaluation}, DTLSR surpasses LSR in a wide variety of unreliable networks. We see a case in Figure~\ref{fig:partition_2_20} where the unreliable link is only up 10\% of the time; DTLSR achieves a drastically higher delivery rate than LSR, at 97\%. Even when a backup link exists --- a case where delay-tolerant modifications would be expected to have minimal impact --- DTLSR reduced the packet drop rate by more than half.
+As described in Chapter~\ref{chapter:evaluation}, DTLSR surpasses LSR in a wide variety of unreliable networks. We see a case in Figure~\ref{fig:partition_2_18} where the unreliable link is only up 10\% of the time; DTLSR achieves a drastically higher delivery rate than LSR, at 97\%. Even when a backup link exists --- a case where delay-tolerant modifications would be expected to have minimal impact --- DTLSR reduced the packet drop rate by more than half.
 
 A particularly interesting case is detailed in ~\ref{fig:full_partition_flap20} where multiple link failures cause no end-to-end connection to exist. LSR achieved absolutely zero packet delivery, a critical problem that cannot be ameliorated with packet retransmission. DTLSR achieved more than 70\% delivery, which is an overwhelming success.
 
@@ -1027,7 +1027,7 @@ A particularly interesting case is detailed in ~\ref{fig:full_partition_flap20} 
   \centering
   \hspace*{2.4cm}
   \includegraphics[width=0.8\linewidth]{delay_partition_flap2_20}
-  \repeatcaption{fig:partition_2_20}{}
+  \repeatcaption{fig:partition_2_18}{}
 \end{figure}
 
 \begin{figure}[H]
@@ -1036,8 +1036,6 @@ A particularly interesting case is detailed in ~\ref{fig:full_partition_flap20} 
   \includegraphics[width=0.8\linewidth]{delay_full_partition_flap20}
   \repeatcaption{fig:full_partition_flap20}{}
 \end{figure}
-
-
 
 \end{minipage}
 
@@ -1054,7 +1052,7 @@ Although DTLSR has met its goals, it could be enhanced further. While it is a mu
 
 The two protocols could also be tested in an unreliable network environment with real hardware, perhaps even being tested in the field. Given the significant performance advantage shown by DTLSR over LSR in emulated network testing using CORE, it is promising enough that the costs would be worth it. CORE allows real nodes to be connected to the emulated network, reducing the marginal cost of testing in this way as it could be done incrementally, also requiring minimal modification of the protocols.
 
-As described in Section~\ref{sec:tcp}, TCP has some serious deficiencies running atop a delay-tolerant routing layer. It would be very interesting to explore session-layer protocols that are more delay-tolerant, either adaptations of TCP or completely new designs. This is a large and exciting space for new ideas.
+As described in section~\ref{sec:tcp}, TCP has some serious deficiencies running atop a delay-tolerant routing layer. It would be very interesting to explore session-layer protocols that are more delay-tolerant, either adaptations of TCP or completely new designs. This is a large and exciting space for new ideas.
 
 I hope to look at some of these challenges in future research if the opportunity arises.
 
@@ -1065,9 +1063,193 @@ I hope to look at some of these challenges in future research if the opportunity
 
 \bibliography{bibliography}
 
+\appendix
+\addtocontents{toc}{\protect\setcounter{tocdepth}{0}}
+
+\chapter{Project Proposal}
+
+\vspace{-8mm}
+\Huge\textbf{Delay-Tolerant Link State Routing}
+
+\vspace{8mm}
+\LARGE\textbf{Introduction and Description of the Work}\normalsize
+
+The network layer in the network stack handles the selection of a path across a network for packets to take, from node to node over connecting links. Small, static networks can use manually configured routing tables, but for large and/or dynamic networks this quickly becomes infeasible. Dynamic routing constructs routing tables automatically using information provided by a routing protocol.
+
+The link state routing (LSR) protocol is one class of these, where every node attempts to construct a map of the entire network showing connectivity and other link properties. This map is used to construct the best path to every other node, which then forms the node’s routing table.
+
+On a link going down, standard LSR will remove it from the map immediately (not considering propagation), potentially partitioning the network. However there are situations where we could expect these links to come back up relatively soon, in which case it would be better to forward the packets up until the break, and then have that node forward the packets once the link comes back up. This potentially makes more efficient use of network resources, depending on the judgement of whether links are truly down for good or not.
+
+My project will be to implement a proposed modification of LSR, called delay-tolerant LSR, and investigate its viability. I will implement the OSPF LSR protocol, modify it to create a DTLSR protocol, and then compare the two.
+
+\vspace{8mm}
+\Large\textbf{Application}\normalsize
+
+One area in which DTLSR is useful is in developing regions, whose network infrastructure can be very unreliable, leading to network partitions lasting minutes, hours, or days. DTLSR helps to make efficient use of limited resources and can often allow connectivity where no end-to-end connection ever exists.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.8\linewidth]{proposal_1}
+\end{figure}
+
+\vspace{8mm}
+\LARGE\textbf{Starting Point}\normalsize
+
+I have no previous experience implementing or designing a network protocol, however I have studied the Computer Networking course in Part 1B, which covered the fundamentals of of routing protocols.
+
+I will be using the Common Open Research Emulator (CORE), a network emulator. CORE requires that network services are written in C. As above I have never written a network service but I have done the C \& C++ course in Part 1B, as well as doing a summer internship writing C for embedded devices.
+
+I have installed CORE on my machine to verify that it works. CORE includes a number of routing protocol suites such as Quagga, which includes full RFC implementations of OSPFv2 and OSPFv3. I will ignore these implementations and write my own limited version, so these are not included in the starting point.
+
+\vspace{8mm}
+\LARGE\textbf{Substance and Structure of the Project}\normalsize
+
+First I will implement a version of the OSPF protocol into CORE as a network service running as a Unix routing daemon. This version will contain only the functionality needed to generate routing tables, for example a graph representation, Link-State Announcement (LSA) messaging, graph merging to use most recent information, and graph searching to find the ‘shortest’ path to every other node.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.9\linewidth]{proposal_2}
+\end{figure}
+
+Here node A has received an LSA from B, and merged the two graphs to use the most recent information.
+
+I will then extend the implementation with the delay-tolerant modifications described above. One particular modification is of the path cost of links. In OSPF it is a function of bandwidth, but I will modify this to instead minimise the expected delay. in up links this will use information like the bandwidth and the size of the packet queue, but in down links we can estimate the delay by using a sliding window over the uptime history to estimate the delay (i.e. when the link will come back up).
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.6\linewidth]{proposal_3}
+\end{figure}
+
+Another modification is that of when forwarding decisions are made. Typically the forwarding decision is made on packet arrival, where it is then placed in a queue for that outgoing interface. However in our scenarios packets can be in the queue for hours, by which time the network may have changed and that forwarding decision is no longer the best. We can instead use ‘per-contact’ routing, where all packets are in a single queue and forwarding decisions can be made every time a new contact is detected, potentially ‘short-circuiting’ the routing decision to take advantage of the good timing of a link coming back up, and sending packets that suddenly have a new, much quicker route than originally predicted.
+
+\vspace{8mm}
+\LARGE\textbf{Possible Extensions}\normalsize
+
+\begin{itemize}
+\item
+Add support for dynamic scaling of protocol parameters to adapt to changing network conditions, for example increasing the size of the sliding window when a consistent connection ‘schedule’ is detected with minimal unexpected fluctuation.
+
+\item
+Investigate how queue capacity at nodes impacts the number of dropped packets, as buffer overflow will be the main cause of packet loss.
+
+\item
+Utilise machine learning techniques for predicting when links will come back up.
+\end{itemize}
+
+\vspace{8mm}
+\LARGE\textbf{Success Criteria}\normalsize
+
+For the project to be deemed a success the following items must be successfully completed.
+
+\begin{enumerate}
+\item
+Design and implement the core routing functionality of OSPF as a CORE network service.
+
+\item
+Design and implement a delay-tolerant LSR as a modification of the above OSPF implementation as a CORE network service.
+
+\item
+Create a series of simulation scenarios to evaluate my implementations and compare their performance.
+\end{enumerate}
+
+To measure the success of items 1 and 2, as stated in the evaluation section below I will ensure that packets are correctly routed through a multi-hop network in CORE. I will consider the project a success if both the OSPF and DTLSR protocols are fully functional, as the point of the project is to evaluate the effectiveness of delay-tolerant modifications.
+
+\vspace{8mm}
+\LARGE\textbf{Evaluation}\normalsize
+
+To evaluate my protocol implementations, I will use the CORE network emulator. This allows me to generate many different network layouts as well as scripting network traffic and changing network conditions over time. This will typically mean varying the connection status of links.
+
+My model of connection patterns will attempt only to model independent link failures, and not a targeted attack on the network. I will however model scenarios where these independent failures lead to a network partition, for example.
+
+CORE allows network statistics to be gathered. I will compute the following metrics:
+
+\begin{itemize}
+\item
+The percentage of dropped messages
+
+\item
+The percentage of a packet’s total lifetime spent enqueued at nodes
+
+\item
+Data throughput
+\end{itemize}
+
+Network utilisation as a measure of efficiency
+These will be gathered for both OSPF and DTLSR in order to compare the performance of both and see whether DTLSR is statistically significantly more performant in low-reliability scenarios, as well as whether the changes made impact performance in more reliable networks.
+
+I will ignore link bandwidths, as the frequency of links going up or down is practically always low enough such that a newly up link is always up long enough to empty the queue at the node.
+
+\vspace{8mm}
+\LARGE\textbf{Timetable and Milestones}\normalsize
+
+At some point I have to write the progress report, but the dates are not on the CST website. I also don’t know which particular date I should ‘start’ on for the timetable. 18th? 25th?
+
+\large\textbf{Weeks 1-2} (25th October - 7th November)\normalsize\\
+I will research the operation and implementation of network services, as well as how they are implemented in CORE as Unix routing daemons.
+
+\large\textbf{Weeks 3-4} (8th November - 21st November)\normalsize\\
+I will begin the implementation of OSPF as a CORE network service by designing and implementing the graph representation of the network, as well as the algorithm for merging graphs together using LSA messages to get the most recent map of the network.
+
+\large\textbf{Weeks 5-6} (22nd November - 5th December)\normalsize\\
+I will finish implementing graph merging and implement the graph searching algorithm to compute the ‘shortest’ paths to every other node. This will be verified by a suite of unit tests. I will start planning the comparative evaluation of the two protocols, generating different scenarios and working out how test data can be read from CORE.
+
+\large\textbf{Weeks 7-8} (6th December - 19th December)\normalsize\\
+I will finish the OSPF implementation and verify that it works using CORE’s functionality for sending packets between nodes. I will also begin designing the DTLSR protocol, and modifying the OSPF protocol to implement it.
+
+\large\textbf{Weeks 9-10} (20th December - 2nd January)\normalsize\\
+Two weeks of relaxation over Christmas, and catching up on behind work if need be.
+
+\large\textbf{Weeks 11-12} (3rd January - 16th January)\normalsize\\
+I will finish the implementation of the DTLSR protocol, verifying that it works like I did for OSPF, and then include it in the evaluation process. This crucially allows comparison between the two protocols, which could inspire new evaluation techniques and metrics that I didn’t originally think of.
+
+\large\textbf{Weeks 13-15} (17st January - 6th February)\normalsize\\
+I will write the progress report, catch up on any implementation work I am behind on and if time allows continue with evaluation.
+
+\large\textbf{Weeks 16-17} (7th February - 20th February)\normalsize\\
+I will start the formal writeup of the dissertation, completing the introduction and preparation chapters. Evaluation will continue.
+
+\large\textbf{Weeks 18-19} (21st February - 6th March)\normalsize\\
+I will complete the implementation chapter, continuing with evaluation.
+
+\large\textbf{Weeks 20-21} (7th March - 20th March)\normalsize\\
+I will complete the evaluation and conclusion chapters by the end of these two weeks.
+
+\large\textbf{Weeks 22-23} (21st March - 3rd April)\normalsize\\
+Buffer time for extra work I need to do if I fall behind, as well as time for my supervisor to read over the dissertation and make corrections as needed.
+
+\large\textbf{Weeks 24-25} (4th April - 17th April)\normalsize\\
+Make corrections and final changes to the dissertation.
+
+\vspace{8mm}
+\LARGE\textbf{Resources Required}\normalsize
+
+I will use my personal laptop of develop this project; a Lenovo Ideapad L340, with a 2.6 GHz Intel Core i7-9750H CPU and 16 GB of RAM. I accept full responsibility for this machine, and its function for the duration of my project. Should my laptop become unusable, I will switch to using the provided MCS computers. I will prevent data loss by hosting my project and dissertation on GitHub, whilst also making regular offline backups with a 64GB USB stick.
+
+I plan on using CORE, available on the Linux platform, to test the protocols and to aid in their implementation. It is available on GitHub under a bespoke licence suitable for a Part II project.
+
+I will write the network services in C, and so will require a GCC C compiler, widely available on all platforms under the GPL licence.
+
+\vspace{8mm}
+\LARGE\textbf{Papers and Useful Links}\normalsize
+
+Practical Routing in Delay-Tolerant Networks (https://dl.acm.org/doi/pdf/10.1145/1080139.1080141)
+
+Delay Tolerant Routing for Developing Regions (http://kfall.com/papers/dtlsr-nsdr07.pdf)
+
+Services in CORE (https://www.brianlinkletter.com/2014/11/core-network-emulator-services-overview/\#more-2914)
+
+CORE service customisation (https://www.brianlinkletter.com/2014/11/how-to-customize-core-network-emulator-services/)
+
+Writing a network service (https://sites.google.com/site/tfsidc/create-a-network-service)
+
+OSPFv2 RFC (https://datatracker.ietf.org/doc/html/rfc2328)
+
+Quagga Routing Suite (https://www.quagga.net/)
 
 
 
+
+\addtocontents{toc}{\protect\setcounter{tocdepth}{2}}
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Index:
 %%
