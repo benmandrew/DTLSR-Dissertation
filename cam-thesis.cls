@@ -527,36 +527,13 @@ Date \emph{\@date{}}\\
 %\@abstract{}
 
 \large
-\textbf{Candidate Number:}  \\
-\textbf{Project Title:} Delay-Tolerant Link-State Routing \\
-\textbf{Examination:} Computer Science Tripos, Part II (June 2022) \\
-\textbf{Word count\footnote{Using TeXcount - \url{https://app.uio.no/ifi/texcount/}}:} 9809 \\
-\textbf{Line count\footnote{Using cloc - \url{https://github.com/AlDanial/cloc}}:}
-
-\begin{table}[H]
-\begin{tabular}{@{}p{0.2\textwidth}rr@{}}\toprule
-\textbf{Section} & \textbf{Files} & \textbf{Code} \\
-\midrule
-\midrule
-\textbf{DTLSR} & & \\
-\midrule
-C & 58 & 4076 \\\addlinespace[0.2em]
-Python & 5 & 510 \\\addlinespace[0.2em]
-\midrule
-\midrule
-\textbf{Data Analysis} & & \\
-\midrule
-Python & 11 & 488 \\\addlinespace[0.2em]
-\midrule
-\midrule
-SUM & 74 & 5074 \\
-\bottomrule
-\end{tabular}
-%\label{table:requirements}
-\end{table}
-
-\textbf{Project Originator:} The dissertation author \\
-\textbf{Supervisor:} Jackson Woodruff \\
+Candidate Number: \textbf{} \\
+Project Title: \textbf{Delay-Tolerant Link-State Routing} \\
+Examination: \textbf{Computer Science Tripos - Part II, June 2022} \\
+Word count\footnote{Using TeXcount - \url{https://app.uio.no/ifi/texcount/}}: \textbf{9869} \\
+Line count\footnote{Using cloc - \url{https://github.com/AlDanial/cloc}}: \textbf{5074}\\
+Project Originator: The dissertation author \\
+Supervisor: Jackson Woodruff \\
 
 \normalsize
 
