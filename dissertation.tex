@@ -292,6 +292,7 @@ As well as having a larger delay, we see in the value of $N$ and in the name of 
 As shown in the evaluation packet buffering techniques do still have a small number of packet drops and so some end-to-end retransmission is needed, but when the link comes back up we are free to use an explicit signalling technique from the destination endpoint to identify dropped packets, such as TCPs triple-ACKed fast retransmit, minimising the amount of retransmission that the source needs to do.
 
 \section{Link vs Node Failures}
+\label{sec:link_vs_node_failures}
 
 We consider two types of failures, link and node. Link failures prevent two functioning nodes from communicating with each other at the link-level. When no alternate route exists, recovery requires the link to be restored, at which point communication continues as normal.
 
@@ -509,9 +510,24 @@ A heartbeat message is a UDP packet with only header, no payload. An rLSA is a U
 
 We use a triggered update system, sending rLSAs to our neighbours whenever we detect a change in the network;  this propagates link-state information as quickly as possible to minimise convergence time. We also send only when we detect changes with respect to our knowledge of the network so that we don't cause infinite looping of updates.
 
+\subsection{Recovery from Node Failure}
+\label{subsec:node_failure}
+
+When a node crashes, it loses all of its knowledge about the graph. On rebooting we want to reaquire that knowledge as quickly as possible, so we implement functionality for a node to request from its neighbours not just their localised rLSAs, but their entire network graph all at once, termed a network link-state announcement (nLSA). This speeds up the recovery of the node's routing capability significantly, as it doesn't have to wait for triggered rLSAs to be sent from all edges of the network.
+
+On rebooting a node sends to all of its neighbours an nLSA request, and each neighbour responds by sending back its own nLSA. These nLSAs are merged together to get the most up-to-date view of the network, we generate the correct routes and then update the forwarding table.
+
 \subsection{Graph Merging}
 
-On receiving an LSA from a neighbour, we must carefully merge the neighbour's representation of the network into our own, only taking the most recent information. We see in Figure~\ref{fig:lsa} an example of a merge, where node A receives an LSA from node B, and merges it in to get the most up-to-date view of the network. Blue nodes and links are from A, and yellow ones are from B, showing in the output graph which nodes and links were taken from whose graph.
+\subsubsection{Router LSA Merging}
+
+An rLSA contains information only about the immediate vicinity of the router, represented by a single \texttt{Node} in our representation; merging this information into our graph is thus very simple. We first compare the timestamps of our stored node and rLSA node: if ours is more recent we do nothing, we have received stale information. If the rLSA node is more recent then we first relay the rLSA to all of our other neighbours to propagate the change through the network, and then copy the data in the node into our own graph, incorporating the new information.
+
+To allow merging to be simple we treat every node as independent, in particular having the node's list of neighbours included in the node's data structure rather than having a separate list of links indexed by 2-tuples of node IDs. While this doubles the memory cost of a link as we represent it with two directed edges rather than a single undirected one, it means that merging becomes a simple independent pairwise comparison between nodes of the same ID to pick the one with the most recent timestamp, which has an $O(n)$ time complexity in the number of nodes in the graph.
+
+\subsubsection{Network LSA Merging}
+
+A network LSA (nLSA) contains a router's full view of the network, and so merging becomes more involved to make sure we only take the most recent information. We see in Figure~\ref{fig:lsa} an example of a merge, where node A receives an nLSA from node B, and merges it in to get the most up-to-date view of the network. Blue nodes and links are from A, and yellow ones are from B, showing in the output graph which nodes and links were taken from whose graph.
 
 \begin{center}
 \begin{minipage}{0.9\textwidth} \centering
@@ -521,9 +537,7 @@ On receiving an LSA from a neighbour, we must carefully merge the neighbour's re
 \end{minipage}
 \end{center}
 
-To make merging simple we treat every node as independent, in particular having the node's list of neighbours included in the node's data structure rather than having a separate list of links indexed by 2-tuples of node IDs. While this doubles the memory cost of a link as we represent it with two directed edges rather than a single undirected one, it means that merging becomes a simple independent pairwise comparison between nodes of the same ID to pick the one with the most recent timestamp, which has an $O(n)$ time complexity.
-
-When we have successfully merged our neighbour's view of the network into our own, any LSAs that we send will contain this information, thus propagating the global link-state information across the network.
+Merging nLSAs is important as after rebooting and sending nLSA requests to all of our neighbours, we may receive many nLSAs back that must be merged together.
 
 \subsection{Local and Global Link-State}
 
@@ -531,7 +545,7 @@ We have two levels of representation for our network representation: a minimal g
 
 For each node in the global graph, we store for each link information like the source IP, neighbour destination IP, the status of the link, the derived metric associated with the link, and a timestamp specifying how old our knowledge of that link is, for merging purposes.
 
-The local graph consists solely of our node along with more in-depth information about links connecting us to our immediate neighbours. Along with all of the information contained in a global node, we also have for each link a timer for timing out heartbeats and the interface which that link goes out on. We take the locally-derived information and feed it into the global graph, which we then disseminate to the rest of the network via LSAs.
+The local graph consists solely of our node along with more in-depth information about links connecting us to our immediate neighbours. Along with all of the information contained in a global node, we also have for each link a timer for timing out heartbeats and the interface which that link goes out on. We take the locally-derived information, disseminate it to the rest of the network via rLSAs, and then feed it into our global graph for making local forwarding decisions.
 
 The data structures for each are detailed in full in Listing~\ref{node_data_structs}. A partial example is shown in Figure~\ref{fig:node_ex}, with the fields of node \texttt{n1} described in detail in Listing~\ref{node_ex_listing}. The global graph is an array of \texttt{Node}s, and the local graph is a single instance of \texttt{LocalNode}, representing ourselves.
 
@@ -594,9 +608,6 @@ With many destinations we have a large number of forwarding table entries, but w
 
 Manipulation of the Unix routing table is done through \texttt{ioctl}, a system call for interacting with OS devices through a file descriptor interface. We pass a flag corresponding to route addition or deletion, along with a `\texttt{route}' struct containing the route details.
 
-\subsection{Recovery from Node Failure}
-\label{subsec:node_failure}
-
 \section{Delay-Tolerant Modifications}
 \label{sec:dtlsr_design}
 
@@ -627,23 +638,12 @@ for (int i = 0; i < this->node.n_neighbours; i++) {
 
 \subsection{Routing Through Down Links}
 
-In order for other nodes to send us their traffic to go through these down links, we must advertise routes as if the links were up. We take the first step in doing this by modifying the Dijkstra pathfinding algorithm to allow paths to go through DOWN links, which was prevented in the LSR protocol. With all of the paths generated, we proceed in the same way as the LSR protocol, advertising these paths to neighbours via LSAs.
+In order for other nodes to send us their traffic to go through these down links, we must advertise routes as if the links were up. We take the first step in doing this by modifying the Dijkstra pathfinding algorithm to allow paths to go through DOWN links, which was prevented in the LSR protocol. With all of the paths generated, we proceed in the same way as the LSR protocol.
 
-An interesting implementation detail is that we must also add this route to the routers forwarding table. We must do this due to the feedback behaviour of ICMP: if we receive a ping that we must forward on, but are not able to match its destination IP address in our forwarding table, then the kernel will drop the packet and send ICMP `\texttt{Network is unreachable}' response messages back to the sending source. The pings will still be buffered however, and once the link comes back up, they will be sent on to the actual destination which will send back to the source corresponding ping response messages. However the source will not accept these responses as they have already been nullified by the `\texttt{Network is unreachable}' messages, thus making ping unusable for evaluating the network. On the other hand if we add the route to the forwarding table then these erroneous responses will not be generated by the router.
+An interesting implementation detail is that we must add this route to the routers forwarding table. We must do this due to the feedback behaviour of ICMP: if we receive a ping that we must forward on, but are not able to match its destination IP address in our forwarding table, then the kernel will drop the packet and send ICMP `\texttt{Network is unreachable}' response messages back to the sending source. The pings will still be buffered however, and once the link comes back up, they will be sent on to the actual destination which will send back to the source corresponding ping response messages. However the source will not accept these responses as they have already been nullified by the `\texttt{Network is unreachable}' messages, thus making ping unusable for evaluating the network. On the other hand if we add the route to the forwarding table then these erroneous responses will not be generated by the router.
 
 A downside to this is that incoming packets will be sent out of the interface onto the down link, deleting them. As we are buffering these packets as well, when the link comes back up there is a small chance of packet duplication, however for testing purposes this is not an issue. To resolve this in a full implementation one would have to modify the behaviour of ICMP in the kernel, as well as potentially other network-layer protocols that have similar behaviour. We wanted to remain in userspace for ease of implementation, so as it has no effect on my evaluation we left it be.
 
-%\begin{center}
-%\begin{minipage}{0.9\textwidth} \centering
-%	\includegraphics[width=0.8\textwidth]{packet_duplication}
-%	\captionof{figure}{Packet duplication is caused by us continuing to buffer packets that are being successfully forwarded on, as we have not yet detected that the link has come up. All packets received in the shown time interval are duplicated.}
-%	\label{fig:packet_duplication}
-%\end{minipage}
-%\end{center}
-
-% JCW: we've switched to we -- that's ok just be consistent
-% JCW: careful with this para --- being aware of bugs is good, but no need to advertise yourself as incomplete -- I think this one is good, becaause the bug is interesting --- but I think you should perhaps talk about the benefits of such a fix (e.g. decrease drop rate by X%)
-%An interesting edge case is when a link goes down connecting a host with its gateway router. As the host runs \texttt{heartbeat} the router will be aware that the link is down and will buffer any traffic coming in along the advertised route with the host as the destination. However any traffic the host wants to send outwards will not be buffered by itself as it is not running any `delay-tolerant' routing software; the host will have to deal with retransmissions as it will not buffer any data locally.  We could theoretically develop a minimal version of the protocol that runs on hosts and only does buffering to solve this issue.
 
 \subsection{Packet Buffering}
 
@@ -749,16 +749,19 @@ We flap the link using the Python scripting API that CORE provides, waiting 4 se
 We monitor each node's routing table using the \texttt{route} Unix utility, the output of which is shown in Listing~\ref{route_command}, with a simple Python script that logs the time when we detect that the route corresponding to node \texttt{n1} has either appeared or disappeared from the table, respective to the link being up or down. We can then analyse the data to determine the time between the link changing state, and each node detecting this change and modifying its routing table accordingly.
 
 \begin{lstlisting}[label=route_command, caption=Example routing table of virtualised node, frame=tb]
-ben@ben-laptop:~/dtlsr/tools$ python3 vcmd.py n1 route -n
+ben@ben-laptop:~/dtlsr/tools$ python3 vcmd.py n5 route -n
 Kernel IP routing table
 Destination Gateway  Genmask       Flags Metric Ref Use Iface
-0.0.0.0     10.0.1.1 0.0.0.0       UG    0      0     0 eth0
-10.0.1.0    10.0.1.2 255.255.255.0 UG    1      0     0 eth0
-10.0.1.0    0.0.0.0  255.255.255.0 U     0      0     0 eth0
-10.0.2.0    10.0.2.3 255.255.255.0 UG    1      0     0 eth1
-10.0.2.0    0.0.0.0  255.255.255.0 U     0      0     0 eth1
-10.0.3.0    10.0.3.5 255.255.255.0 UG    1      0     0 eth2
-10.0.3.0    0.0.0.0  255.255.255.0 U     0      0     0 eth2
+0.0.0.0     10.0.0.6 0.0.0.0       UG    0      0     0 eth0
+10.0.0.0    0.0.0.0  255.255.255.0 U     0      0     0 eth0
+10.0.0.0    10.0.0.6 255.255.255.0 UG    1      0     0 eth0
+10.0.1.0    10.0.4.4 255.255.255.0 UG    2      0     0 eth1
+10.0.2.0    10.0.4.4 255.255.255.0 UG    3      0     0 eth1
+10.0.3.0    10.0.0.6 255.255.255.0 UG    2      0     0 eth0
+10.0.4.0    0.0.0.0  255.255.255.0 U     0      0     0 eth1
+10.0.4.0    10.0.4.4 255.255.255.0 UG    1      0     0 eth1
+10.0.5.0    10.0.0.6 255.255.255.0 UG    4      0     0 eth0
+10.0.7.0    10.0.0.6 255.255.255.0 UG    3      0     0 eth0
 \end{lstlisting}
 
 We do convergence testing with link delays of \SI{1}{\ms} and \SI{100}{\ms}. A link delay of \SI{100}{\ms} is large enough to verify that the convergence time depends on the hop count, from the propagation time, while a delay of \SI{1}{\ms} is what we use for the rest of the evaluation, so it is useful to include as a baseline.  Heartbeats are sent every \SI{200}{\ms}, and the heartbeat timeout is set to \SI{900}{\ms}.
@@ -785,9 +788,9 @@ We do convergence testing with link delays of \SI{1}{\ms} and \SI{100}{\ms}. A l
 
 In the graphs in Figure~\ref{fig:conv} we see the time between the event occurring and it being detected by the router, depending on the number of hops from the event. Error bars are the standard deviation of the convergence time. We consider the zero-hop node to be that directly attached to the flapping link. In both Figure~\ref{fig:conv_1ms} and \ref{fig:conv_100ms} we see a marked difference between the detection time of the UP and DOWN events, where detection of the link coming up happens much faster than detecting it has failed. This is due to the way these are detected at a link-level, with the former being actively detected by a heartbeat and the latter being passively detected by a timeout. It is then clear that these rely heavily on the particular constants chosen for the heartbeat sending period and the amount of time required for a timeout.
 
-Hop counts of 1 and above rely on the network-layer section of the protocol, with link-state information being sent from node to node. As LSAs are propagated as soon as they are received, we are bounded mainly by the link delay, which we can see in the difference between the higher hop counts of~\ref{fig:conv_1ms} and~\ref{fig:conv_100ms}. In~\ref{fig:conv_1ms} the delay is so small as for each subsequent hop to be almost indistinguishable from the last, but in~\ref{fig:conv_100ms} we see the delay increasing the convergence time for each hop cumulatively, for both UP and DOWN events.
+Hop counts of 1 and above rely on the network-layer section of the protocol, with link-state information being sent from node to node. As rLSAs are propagated almost as soon as they are received, we are bounded mainly by the link delay, which we can see in the difference between the higher hop counts of~\ref{fig:conv_1ms} and~\ref{fig:conv_100ms}. In~\ref{fig:conv_1ms} the delay is so small as for each subsequent hop to be almost indistinguishable from the last, but in~\ref{fig:conv_100ms} we see the delay increasing the convergence time for each hop cumulatively, for both UP and DOWN events.
 
-It is interesting to note that subsequent hops depend on the cumulative time added by all previous hops, due to propagation. As the difference between up and down remains close to constant after the zero-hop node, we can conclude that the network-layer behaviour is the same for up and down, explained by them both depending on the same LSA propagation system.
+It is interesting to note that subsequent hops depend on the cumulative time added by all previous hops, due to propagation. As the difference between up and down remains close to constant after the zero-hop node, we can conclude that the network-layer behaviour is the same for up and down, explained by them both depending on the same rLSA propagation system.
 
 
 \section{Delay: Link Failures}
@@ -807,6 +810,7 @@ Unless specified otherwise, all links have a delay of \SI{1}{\ms}.
 
 % JCW: even this could do with something to break up the length -- see the \paragraph{ } tags maybe?
 \subsection{Partial Partition Topology}
+\label{subsec:partial_partition}
 
 Firstly we have a topology with a single central connecting link, \texttt{n1-n2}, that we periodically alternate being up or down; we say that the link is `\textbf{flapping}'. Of note in this topology is that when the link is down it creates a network partition between node subsets \texttt{(n1,n3,n5)} and \texttt{(n2,n4,n6)}.
 
@@ -945,12 +949,26 @@ We again see that DTLSR achieves a higher proportion of delivered packets than L
 
 As stated above this kind of topology is uncommon in remote and developing regions due to the cost of adding backup links. However it is useful to contrast LSR and DTLSR and show that even with other hardware solutions to failure, DTLSR still has a competitive advantage over LSR in delivery rate.
 
-\section{Delay: Router Failures}
+\section{Delay: Node Failures}
 
+As detailed in section~\ref{sec:link_vs_node_failures}, we must also consider the effects of router failures on the delay of packets through the network, as their recovery process is a little different to link failures. We evaluate using the topology described in Figure~\ref{fig:node_partition_topology}, periodically shutting down and restarting the node \texttt{n7} with period $T=40$ (\SI{20}{\s} up, \SI{20}{\s} down). When the node is down the network is partitioned, as in the topology in subsection~\ref{subsec:partial_partition}.
 
-\begin{figure} \centering
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.65\linewidth]{delay_full_partition_topology}
+  \caption{`Node' partition topology}
+  \label{fig:node_partition_topology}
+\end{figure}
+
+\subsection{Results}
+
+We see identical behaviour to the results of link failure in Figure~\ref{fig:partition_20}, with LSR achieving 50\% delivery rate consistent with the router being up half of the time, and DTLSR achieving a much higher 98\% delivery rate due to the packet buffering at \texttt{n1} and \texttt{n2}. The 2\% packet loss is again due to \texttt{n1} and \texttt{n2} only detecting the down node after the heartbeat timeout period.
+
+That node failure under DTLSR has an almost identical delay graph to link failure is a great
+
+\begin{figure}[H] \centering
 	\includegraphics[width=0.8\textwidth]{delay_node_flap20}
-	\captionof{figure}{}
+	\captionof{figure}{CDF of packet round-trip delay for node-failure topology}
 	\label{fig:delay_node_flap20}
 \end{figure}
 
@@ -972,14 +990,14 @@ We see in Figure~\ref{fig:tcp_5_30} that both LSR and DTLSR fall far short of th
 
 We see also that DTLSR has a slightly lower bitrate than LSR. I predict that this is due to DTLSR's buffering system and TCP's feedback system working very poorly with each other. When the link comes back up, a DTLSR router forwards all of the buffered packets as quickly as possible, resulting in a flood of ACKs being returned to the sender. TCP isn't designed expecting this to occur and so it introduces instability into its feedback system, reducing the mean bitrate overall as it tries to recover.
 
-In both of the analyses described above, we see that TCP has an inherent weakness in running on a delay-tolerant network, particularly in responding correctly to the link coming back up. We thus see that in real applications it is not simply enough to replace the routing layer of a traditional network stack, but that the session layer as well must be changed in order to adapt to the new behaviour that the routing layer exhibits.
-
-\begin{figure}
+\begin{figure}[H]
   \centering
   \includegraphics[width=0.8\linewidth]{tcp_bar_flap5_30}
   \caption{}
   \label{fig:tcp_5_30}
 \end{figure}
+
+In both of the analyses described above, we see that TCP has an inherent weakness in running on a delay-tolerant network, particularly in responding correctly to the link coming back up. We thus see that in real applications it is not simply enough to replace the routing layer of a traditional network stack, but that the session layer as well must be changed in order to adapt to the new behaviour that the routing layer exhibits.
 
 
 \section{Summary}
