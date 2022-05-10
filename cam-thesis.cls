@@ -530,7 +530,7 @@ Date \emph{\@date{}}\\
 Candidate Number: \textbf{} \\
 Project Title: \textbf{Delay-Tolerant Link-State Routing} \\
 Examination: \textbf{Computer Science Tripos - Part II, June 2022} \\
-Word count\footnote{Using TeXcount - \url{https://app.uio.no/ifi/texcount/}}: \textbf{9869} \\
+Word count\footnote{Using TeXcount - \url{https://app.uio.no/ifi/texcount/}}: \textbf{9783} \\
 Line count\footnote{Using cloc - \url{https://github.com/AlDanial/cloc}}: \textbf{5074}\\
 Project Originator: The dissertation author \\
 Supervisor: Jackson Woodruff \\
