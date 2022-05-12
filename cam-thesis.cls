@@ -527,11 +527,12 @@ Date \emph{\@date{}}\\
 %\@abstract{}
 
 \large
-Candidate Number: \textbf{} \\
+Candidate Number: \textbf{2434F} \\
 Project Title: \textbf{Delay-Tolerant Link-State Routing} \\
 Examination: \textbf{Computer Science Tripos - Part II, June 2022} \\
-Word count\footnote{Using TeXcount - \url{https://app.uio.no/ifi/texcount/}}: \textbf{9783} \\
-Line count\footnote{Using cloc - \url{https://github.com/AlDanial/cloc}}: \textbf{5074}\\
+Word count\footnote{Using TeXcount - \url{https://app.uio.no/ifi/texcount/}}: \textbf{9851
+} \\
+Line count\footnote{Using cloc - \url{https://github.com/AlDanial/cloc}}: \textbf{5085}\\
 Project Originator: The dissertation author \\
 Supervisor: Jackson Woodruff \\
 
@@ -541,12 +542,12 @@ Supervisor: Jackson Woodruff \\
 
 \LARGE\textbf{Original Aims of the Project}\normalsize
 
-This project aims to implement LSR, a link-state routing protocol and make delay-tolerant modifications to produce DTLSR in order to investigate how both protocols perform in unreliable network conditions involving link and node failures. We aim to maximise the packet delivery rate, and to minimise the end-to-end packet delay.
+This project aims to implement both a traditional link-state routing protocol (LSR) and a modified delay-tolerant version (DTLSR) in order to investigate how both protocols perform in unreliable network conditions involving link and node failures. I aim for DTLSR's modifications to both maximise the packet delivery rate and to minimise the end-to-end packet delay.
 
 \vspace{8mm}
 \LARGE\textbf{Work Completed}\normalsize
 
-The project was a great success. LSR and DTLSR were implemented successfully and run on the network emulator. All success criteria were met and the evaluation showed that DTLSR has a significant advantage over LSR for packet delivery on a wide variety of unreliable networks.
+The project was a great success. Both LSR and DTLSR were implemented successfully and run on the network emulator. All success criteria were met and the evaluation showed that DTLSR has a significant advantage over LSR for packet delivery and delay on a wide variety of unreliable networks. An exploration of session-layer performance was also done, informing future work in the area.
 
 \vspace{8mm}
 \LARGE\textbf{Special Difficulties}\normalsize

@@ -120,7 +120,7 @@
 \submissionnotice{This dissertation is submitted for Part II of the Computer Science Tripos in 2022}
 
 %% Declaration date:
-\date{6th May, 2022}
+\date{12th May, 2022}
 
 %% PDF meta-info:
 \subjectline{Computer Science}
@@ -143,11 +143,11 @@
 %% Introduction
 %%
 
-\listoffigures
+%\listoffigures
 
 %\lstlistoflistings
 
-\pagebreak
+%\pagebreak
 
 \chapter{Introduction}
 
@@ -275,7 +275,6 @@ An interesting point is that all of the VMs are run in real-time on a single hos
 \begin{lstlisting}[label=core_filesystem, frame=tb, caption=Example of a virtualised file-system]
 ben@ben-laptop:/tmp/pycore.1/n1.conf$ ls -lh
 total 40K
--rw-r--r-- 1 root root   98 Apr 16 14:43 defaultroute.sh
 -rw-r--r-- 1 root root  103 Apr 16 14:43 hbtboot.sh
 -rw-rw-rw- 1 root root 2.1K Apr 16 14:44 hbt.log
 -rw-r--r-- 1 root root  798 Apr 16 14:43 ipforward.sh
@@ -289,20 +288,11 @@ total 40K
 ben@ben-laptop:~$ nmcli device status
 DEVICE          TYPE      STATE         CONNECTION
 b.10.1          bridge    connected     b.10.1
-b.11.1          bridge    connected     b.11.1
-b.7.1           bridge    connected     b.7.1
-b.8.1           bridge    connected     b.8.1
-b.9.1           bridge    connected     b.9.1
+...
 veth1.0.1       ethernet  unmanaged     --
 veth1.1.1       ethernet  unmanaged     --
 veth1.2.1       ethernet  unmanaged     --
-veth2.0.1       ethernet  unmanaged     --
-veth2.1.1       ethernet  unmanaged     --
-veth2.2.1       ethernet  unmanaged     --
-veth3.0.1       ethernet  unmanaged     --
-veth4.0.1       ethernet  unmanaged     --
-veth5.0.1       ethernet  unmanaged     --
-veth6.0.1       ethernet  unmanaged     --
+...
 \end{lstlisting}
 \end{minipage}
 
@@ -339,6 +329,12 @@ CORE automatic network generation from config file & Preferable \\\addlinespace[
 \caption{Requirements specification.}
 \label{table:requirements}
 \end{table}
+
+\subsection{Project Design}
+
+The requirements analysis provided a high-level overview of the tasks to be completed, which, in combination with the milestones set out in the proposal, informed the order of sub-tasks to be implemented at the start of the project. As testing and evaluating the code depended on having a working network emulator, I chose to follow the tasks in the following order: CORE testing infrastructure, implementation of LSR, and evaluation.
+
+I chose to carry out the project with an incremental model, which allowed me to frequently test and validate incremental additions to the implementation so that I was sure in the direction I was moving. This allowed me to make informed decisions about features I needed to include or remove.
 
 \subsection{Tools}
 
@@ -642,7 +638,7 @@ dtlsr                        Root
 	\texttt{process} contains functionality for interacting with both CORE and the Unix OS, for example retrieving node information, logging, and manipulating the Unix routing table.
 \end{itemize}
 
-The project was implemented almost entirely in C, with CORE-specific scripts in Python.
+The project was implemented almost entirely in C, with CORE-specific scripts in Python. All code in the repository is my own work.
 
 \subsection{Repository Justification}
 
@@ -659,7 +655,7 @@ I first determine the convergence behaviour of the protocols to provide a baseli
 
 
 \paragraph{Delay and Delivery Rate}
-I then compare the delay of packet arrivals in LSR and DTLSR in a number of topologies, importantly providing the overall packet loss percentage as well. Packet loss has a critical influence on delay, as the time taken to detect a loss and retransmit can be many orders of magnitude above the time to propagate a packet through the network, drastically increasing the mean delay. It is necessary to also consider that information may be spread across multiple packets, meaning that individual packet losses can prevent us from using already received data that depends on it, causing a bottleneck. Thus, minimising packet drop rate is critically important.
+I then compare the delay of packet arrivals in LSR and DTLSR in a number of topologies, importantly providing the overall packet loss as well. Packet loss has a critical influence on delay, as the time taken to detect a loss and retransmit can be many orders of magnitude above the time to propagate a packet through the network, drastically increasing the mean delay. It is necessary to also consider that information may be spread across multiple packets, meaning that individual packet losses can prevent us from using already received data that depends on it, causing a bottleneck. Thus, minimising packet drop rate is critically important.
 
 \paragraph{TCP Throughput}
 I then briefly evaluate TCP's throughput performance on an unreliable network, seeing how link flapping exposes fundamental problems with TCP's rate control feedback mechanism. While not the main focus of this project, this gives us some insight into the larger-scale issues of implementing a delay-tolerant network stack in the real world.
@@ -673,7 +669,7 @@ My testing topology is a long chain of routers, shown in Figure~\ref{fig:conv_to
 
 \begin{minipage}{1\textwidth} \centering
 	\includegraphics[width=0.9\textwidth]{conv_topology}
-	\captionof{figure}{`Convergence' network topology}
+	\captionof{figure}{\textbf{Convergence} network topology}
 	\label{fig:conv_topology}
 \end{minipage}
 
@@ -979,6 +975,8 @@ A fascinating case is detailed in Figure~\ref{fig:full_partition_flap20} where m
 This project greatly tested my software engineering, systems engineering, and computer science abilities. I have found it a wonderful learning experience.
 
 Choosing to implement the protocols in C taught me a lot about software development for a low-level, high-performance system. While C provided a few useful utilities used in this project, it would have been much easier to implement in a higher-level language, such as OCaml or Java; for example, I had particular pains with memory management, which these languages manage automatically. Due to the research nature of this project, of comparing two protocols rather than creating a production-ready implementation, if I were to start again, I would choose to implement it in one of these languages.
+
+I very much enjoyed working with CORE, as it made incrementally testing and evaluating the network protocols much easier than it would be otherwise. Even though I had to write a few custom tools myself (logging, running commands on virtual nodes, automatic topology generation), CORE handles the difficult parts of a virtualised network entirely.
 
 \section{Future Work}
 
